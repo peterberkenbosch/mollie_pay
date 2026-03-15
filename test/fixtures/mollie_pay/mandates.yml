@@ -1,0 +1,6 @@
+acme_mandate:
+  customer: acme
+  mollie_id: mdt_mandate123
+  method: directdebit
+  status: valid
+  mandated_at: <%= 1.week.ago %>

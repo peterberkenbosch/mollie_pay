@@ -1,0 +1,6 @@
+acme_refund:
+  payment: acme_oneoff
+  mollie_id: re_refund123
+  status: queued
+  amount: 7500
+  currency: EUR

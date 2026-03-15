@@ -1,0 +1,7 @@
+acme_monthly:
+  customer: acme
+  mollie_id: sub_acme123
+  status: active
+  amount: 2500
+  currency: EUR
+  interval: "1 month"
