@@ -20,7 +20,7 @@ Rails 8+, Mollie-native.
 - Ruby 3.2+
 - Rails 8.0+
 - Active Job (any queue adapter)
-- A [Mollie](https://www.mollie.com) account and API key
+- A [Mollie](https://my.mollie.com/dashboard/signup/7878281?lang=nl) account and API key
 
 ## Installation
 
