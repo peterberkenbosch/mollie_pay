@@ -4,6 +4,7 @@ module MolliePay
   class Configuration
     attr_accessor :api_key
     attr_accessor :webhook_url
+    attr_accessor :default_redirect_url
     attr_accessor :currency
 
     def initialize
@@ -16,7 +17,7 @@ module MolliePay
     end
 
     def inspect
-      "#<MolliePay::Configuration webhook_url=#{webhook_url.inspect} currency=#{currency.inspect} api_key=[FILTERED]>"
+      "#<MolliePay::Configuration webhook_url=#{webhook_url.inspect} default_redirect_url=#{default_redirect_url.inspect} currency=#{currency.inspect} api_key=[FILTERED]>"
     end
   end
 

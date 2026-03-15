@@ -17,11 +17,11 @@ module MolliePay
 
     # === Payments ===
 
-    def mollie_pay_once(amount:, description:, redirect_url:)
+    def mollie_pay_once(amount:, description:, redirect_url: nil)
       create_mollie_payment(amount:, description:, redirect_url:, sequence_type: "oneoff")
     end
 
-    def mollie_pay_first(amount:, description:, redirect_url:)
+    def mollie_pay_first(amount:, description:, redirect_url: nil)
       create_mollie_payment(amount:, description:, redirect_url:, sequence_type: "first")
     end
 
@@ -112,10 +112,13 @@ module MolliePay
 
     def create_mollie_payment(amount:, description:, redirect_url:, sequence_type:)
       customer = mollie_customer!
+      resolved_redirect_url = redirect_url || MolliePay.configuration.default_redirect_url
+      raise MolliePay::ConfigurationError, "No redirect_url provided and default_redirect_url is not configured" if resolved_redirect_url.blank?
+
       mp = Mollie::Payment.create(
         amount:       mollie_amount(amount),
         description:  description,
-        redirectUrl:  redirect_url,
+        redirectUrl:  resolved_redirect_url,
         webhookUrl:   MolliePay.configuration.webhook_url,
         customerId:   customer.mollie_id,
         sequenceType: sequence_type
@@ -126,7 +129,8 @@ module MolliePay
         status:        mp.status,
         amount:        amount,
         currency:      MolliePay.configuration.currency,
-        sequence_type: sequence_type
+        sequence_type: sequence_type,
+        checkout_url:  mp.checkout_url
       )
     end
 

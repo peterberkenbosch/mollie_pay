@@ -48,9 +48,10 @@ Configure in `config/initializers/mollie_pay.rb`:
 
 ```ruby
 MolliePay.configure do |config|
-  config.api_key     = ENV["MOLLIE_API_KEY"]
-  config.webhook_url = ENV["MOLLIE_WEBHOOK_URL"] # e.g. https://yourapp.com/mollie_pay/webhooks
-  config.currency    = "EUR"                      # default
+  config.api_key              = ENV["MOLLIE_API_KEY"]
+  config.webhook_url          = ENV["MOLLIE_WEBHOOK_URL"]          # e.g. https://yourapp.com/mollie_pay/webhooks
+  config.default_redirect_url = ENV["MOLLIE_DEFAULT_REDIRECT_URL"] # where Mollie sends customers back after payment
+  config.currency             = "EUR"                              # default
 end
 ```
 
@@ -91,14 +92,21 @@ created. The standard flow is:
 payment = current_organization.mollie_pay_first(
   amount:       1000, # 10.00 in cents
   description:  "Activation fee",
-  redirect_url: billing_return_url
+  redirect_url: billing_return_url # optional if default_redirect_url is configured
 )
 
-redirect_to payment.mollie_record.checkout_url
+redirect_to payment.checkout_url
 ```
 
-The customer completes payment via iDEAL, credit card or another method. Mollie
-fires a webhook. MolliePay stores the mandate automatically.
+After creating the payment, MolliePay stores the Mollie checkout URL on the
+payment record. Redirect the customer to `payment.checkout_url` — this is the
+Mollie-hosted payment page where they complete payment via iDEAL, credit card or
+another method. Mollie fires a webhook. MolliePay stores the mandate
+automatically.
+
+When the customer finishes (or abandons) payment, Mollie redirects them back to
+the `redirect_url` you provided. If you configured `default_redirect_url`, you
+can omit `redirect_url:` from the call.
 
 **2. Subscribe — requires a valid mandate**
 
@@ -118,8 +126,10 @@ Raises `MolliePay::MandateRequired` if no valid mandate is on file.
 payment = current_organization.mollie_pay_once(
   amount:       7500,
   description:  "Extra service",
-  redirect_url: billing_return_url
+  redirect_url: billing_return_url # optional if default_redirect_url is configured
 )
+
+redirect_to payment.checkout_url
 ```
 
 **4. Cancel subscription**
@@ -156,7 +166,6 @@ Every local record exposes `mollie_record`, which fetches the full object from
 the Mollie API on demand:
 
 ```ruby
-payment.mollie_record.checkout_url
 subscription.mollie_record.next_payment_date
 mandate.mollie_record.details
 customer.mollie_record.locale
@@ -364,7 +373,7 @@ MolliePay::WebhookEvent.pending
 
 | Error | Raised when |
 |---|---|
-| `MolliePay::ConfigurationError` | `api_key` or `webhook_url` is missing at boot |
+| `MolliePay::ConfigurationError` | `api_key` or `webhook_url` is missing at boot, or no `redirect_url` is available when creating a payment |
 | `MolliePay::MandateRequired` | `mollie_subscribe` is called without a valid mandate |
 | `MolliePay::SubscriptionNotFound` | `mollie_cancel_subscription` is called without an active subscription |
 
@@ -376,6 +385,7 @@ All inherit from `MolliePay::Error < StandardError`.
 |---|---|---|---|
 | `api_key` | Yes | — | Your Mollie API key (`test_*` or `live_*`) |
 | `webhook_url` | Yes | — | Full URL where Mollie sends webhook POSTs |
+| `default_redirect_url` | No | — | Where Mollie sends customers back after payment. Per-call `redirect_url:` overrides this. |
 | `currency` | No | `"EUR"` | ISO 4217 currency code for new payments/subscriptions |
 
 ## Testing
@@ -399,7 +409,10 @@ class OrganizationTest < ActiveSupport::TestCase
     org = organizations(:acme)
 
     # Stub Mollie API responses
-    mollie_payment = OpenStruct.new(id: "tr_test123", status: "open")
+    mollie_payment = OpenStruct.new(
+      id: "tr_test123", status: "open",
+      checkout_url: "https://www.mollie.com/payscreen/select-method/test"
+    )
     Mollie::Payment.stub(:create, mollie_payment) do
       payment = org.mollie_pay_first(
         amount: 1000,
@@ -407,6 +420,7 @@ class OrganizationTest < ActiveSupport::TestCase
         redirect_url: "https://example.com/return"
       )
       assert_equal "open", payment.status
+      assert_equal "https://www.mollie.com/payscreen/select-method/test", payment.checkout_url
     end
   end
 end

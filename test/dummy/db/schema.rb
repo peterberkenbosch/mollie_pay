@@ -37,6 +37,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_15_195718) do
   create_table "mollie_pay_payments", force: :cascade do |t|
     t.integer "amount", null: false
     t.datetime "canceled_at"
+    t.string "checkout_url"
     t.datetime "created_at", null: false
     t.string "currency", default: "EUR", null: false
     t.integer "customer_id", null: false

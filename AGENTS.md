@@ -145,8 +145,8 @@ end
 ```
 
 Public methods:
-- `mollie_pay_once(amount:, description:, redirect_url:)`
-- `mollie_pay_first(amount:, description:, redirect_url:)`
+- `mollie_pay_once(amount:, description:, redirect_url: nil)` → returns `Payment` with `checkout_url`
+- `mollie_pay_first(amount:, description:, redirect_url: nil)` → returns `Payment` with `checkout_url`
 - `mollie_subscribe(amount:, interval:, description:)`
 - `mollie_cancel_subscription`
 - `mollie_refund(payment, amount: nil)`

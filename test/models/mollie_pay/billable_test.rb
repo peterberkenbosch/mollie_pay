@@ -41,8 +41,11 @@ module MolliePay
       assert_equal Payment.none.to_a, org.mollie_payments.to_a
     end
 
-    test "mollie_pay_once creates a one-off payment" do
-      mollie_response = OpenStruct.new(id: "tr_oneoff_new", status: "open")
+    test "mollie_pay_once creates a one-off payment with checkout_url" do
+      mollie_response = OpenStruct.new(
+        id: "tr_oneoff_new", status: "open",
+        checkout_url: "https://www.mollie.com/payscreen/select-method/oneoff"
+      )
 
       Mollie::Payment.stub(:create, mollie_response) do
         payment = @org.mollie_pay_once(
@@ -56,11 +59,15 @@ module MolliePay
         assert_equal 5000, payment.amount
         assert_equal "oneoff", payment.sequence_type
         assert_equal @org.mollie_customer, payment.customer
+        assert_equal "https://www.mollie.com/payscreen/select-method/oneoff", payment.checkout_url
       end
     end
 
-    test "mollie_pay_first creates a first payment" do
-      mollie_response = OpenStruct.new(id: "tr_first_new", status: "open")
+    test "mollie_pay_first creates a first payment with checkout_url" do
+      mollie_response = OpenStruct.new(
+        id: "tr_first_new", status: "open",
+        checkout_url: "https://www.mollie.com/payscreen/select-method/first"
+      )
 
       Mollie::Payment.stub(:create, mollie_response) do
         payment = @org.mollie_pay_first(
@@ -73,6 +80,70 @@ module MolliePay
         assert_equal "open", payment.status
         assert_equal 1000, payment.amount
         assert_equal "first", payment.sequence_type
+        assert_equal "https://www.mollie.com/payscreen/select-method/first", payment.checkout_url
+      end
+    end
+
+    test "mollie_pay_once uses default_redirect_url when no redirect_url given" do
+      MolliePay.configuration.default_redirect_url = "https://myapp.com/payments/complete"
+
+      passed_redirect_url = nil
+      mollie_response = OpenStruct.new(
+        id: "tr_default_redir", status: "open",
+        checkout_url: "https://www.mollie.com/payscreen/select-method/default"
+      )
+
+      fake_create = ->(**args) { passed_redirect_url = args[:redirectUrl]; mollie_response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        payment = @org.mollie_pay_once(amount: 3000, description: "Default redirect")
+
+        assert_equal "tr_default_redir", payment.mollie_id
+        assert_equal "https://www.mollie.com/payscreen/select-method/default", payment.checkout_url
+      end
+
+      assert_equal "https://myapp.com/payments/complete", passed_redirect_url
+    ensure
+      MolliePay.configuration.default_redirect_url = nil
+    end
+
+    test "mollie_pay_once prefers per-call redirect_url over default" do
+      MolliePay.configuration.default_redirect_url = "https://myapp.com/default"
+
+      passed_redirect_url = nil
+      mollie_response = OpenStruct.new(
+        id: "tr_override", status: "open",
+        checkout_url: "https://www.mollie.com/payscreen/select-method/override"
+      )
+
+      fake_create = ->(**args) { passed_redirect_url = args[:redirectUrl]; mollie_response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_once(
+          amount: 2000,
+          description: "Override redirect",
+          redirect_url: "https://example.com/custom-return"
+        )
+      end
+
+      assert_equal "https://example.com/custom-return", passed_redirect_url
+    ensure
+      MolliePay.configuration.default_redirect_url = nil
+    end
+
+    test "mollie_pay_once raises when no redirect_url and no default configured" do
+      MolliePay.configuration.default_redirect_url = nil
+
+      assert_raises(MolliePay::ConfigurationError) do
+        @org.mollie_pay_once(amount: 1000, description: "No redirect")
+      end
+    end
+
+    test "mollie_pay_once raises when redirect_url is blank string" do
+      MolliePay.configuration.default_redirect_url = nil
+
+      assert_raises(MolliePay::ConfigurationError) do
+        @org.mollie_pay_once(amount: 1000, description: "Blank redirect", redirect_url: "")
       end
     end
 
@@ -81,7 +152,10 @@ module MolliePay
       assert_nil org.mollie_customer
 
       mollie_customer = OpenStruct.new(id: "cst_fresh123")
-      mollie_payment = OpenStruct.new(id: "tr_fresh_pay", status: "open")
+      mollie_payment = OpenStruct.new(
+        id: "tr_fresh_pay", status: "open",
+        checkout_url: "https://www.mollie.com/payscreen/select-method/fresh"
+      )
 
       Mollie::Customer.stub(:create, mollie_customer) do
         Mollie::Payment.stub(:create, mollie_payment) do
@@ -94,6 +168,7 @@ module MolliePay
           assert_not_nil org.reload.mollie_customer
           assert_equal "cst_fresh123", org.mollie_customer.mollie_id
           assert_equal "tr_fresh_pay", payment.mollie_id
+          assert_equal "https://www.mollie.com/payscreen/select-method/fresh", payment.checkout_url
         end
       end
     end
