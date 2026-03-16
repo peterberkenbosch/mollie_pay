@@ -554,7 +554,6 @@ class PricingController < ApplicationController
 
   def show
     @plans = PLANS
-    @current_subscription = Current.user.mollie_subscription
   end
 end
 ```
