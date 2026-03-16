@@ -350,6 +350,12 @@ Now include both in your application layout. Open
 This is the simplest Mollie flow: create a payment, redirect the customer to
 Mollie's checkout page, and handle the return.
 
+> **Turbo Drive and external redirects:** Rails 8 includes Turbo Drive by
+> default, which intercepts form submissions via `fetch()`. Cross-origin
+> redirects (like Mollie's checkout URL) are silently blocked by the browser.
+> Add `data: { turbo: false }` to every form that redirects to Mollie. You'll
+> see this in the payment form and pricing page buttons below.
+
 ### Create the payments controller
 
 ```ruby
@@ -389,7 +395,7 @@ end
 <div class="max-w-md mx-auto mt-16">
   <h1 class="text-2xl font-bold mb-6">Make a payment</h1>
 
-  <%= form_with url: payments_path, method: :post, class: "space-y-4" do |form| %>
+  <%= form_with url: payments_path, method: :post, data: { turbo: false }, class: "space-y-4" do |form| %>
     <div>
       <%= form.label :amount, "Amount (in cents)",
             class: "block text-sm font-medium text-gray-700 mb-1" %>
@@ -567,6 +573,7 @@ end
                     subscription_setup_path,
                     params: { plan: key },
                     method: :post,
+                    form: { data: { turbo: false } },
                     class: "w-full bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 cursor-pointer" %>
             <% else %>
               <%= link_to "Sign up to get started",
