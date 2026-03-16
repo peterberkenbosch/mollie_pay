@@ -177,7 +177,7 @@ Event hooks (override in host model, all no-ops by default):
 MolliePay.configure do |config|
   config.api_key               = ENV["MOLLIE_API_KEY"]
   config.host                  = ENV["MOLLIE_HOST"]
-  config.default_redirect_path = "/billing_return"
+  config.default_redirect_path = "/payments/:id"
   config.currency              = "EUR"
 end
 ```

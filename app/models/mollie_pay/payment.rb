@@ -7,7 +7,7 @@ module MolliePay
     belongs_to :subscription, optional: true
     has_many   :refunds, dependent: :destroy
 
-    validates :mollie_id,     presence: true, uniqueness: true
+    validates :mollie_id,     uniqueness: true, allow_nil: true
     validates :status,        inclusion: { in: STATUSES }
     validates :sequence_type, inclusion: { in: SEQUENCE_TYPES }
     validates :amount,        presence: true, numericality: { greater_than: 0 }

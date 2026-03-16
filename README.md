@@ -51,7 +51,7 @@ The generated initializer at `config/initializers/mollie_pay.rb`:
 MolliePay.configure do |config|
   config.api_key               = ENV["MOLLIE_API_KEY"]
   config.host                  = ENV["MOLLIE_HOST"]       # e.g. "https://yourapp.com"
-  config.default_redirect_path = "/billing_return"        # where Mollie sends customers back after payment
+  config.default_redirect_path = "/payments/:id"           # :id is replaced with the local payment ID
   config.currency              = "EUR"                    # default
 end
 ```
@@ -96,7 +96,7 @@ created. The standard flow is:
 payment = current_organization.mollie_pay_first(
   amount:       1000, # 10.00 in cents
   description:  "Activation fee",
-  redirect_url: billing_return_url # optional if default_redirect_path is configured
+  redirect_url: payment_url(payment) # optional if default_redirect_path is configured
 )
 
 redirect_to payment.checkout_url
@@ -109,8 +109,9 @@ another method. Mollie fires a webhook. MolliePay stores the mandate
 automatically.
 
 When the customer finishes (or abandons) payment, Mollie redirects them back to
-the `redirect_url` you provided. If you configured `default_redirect_path`, you
-can omit `redirect_url:` from the call.
+the `redirect_url` you provided (or the `default_redirect_path` with the payment
+ID interpolated). If you configured `default_redirect_path`, you can omit
+`redirect_url:` from the call.
 
 **2. Subscribe — requires a valid mandate**
 
@@ -130,7 +131,7 @@ Raises `MolliePay::MandateRequired` if no valid mandate is on file.
 payment = current_organization.mollie_pay_once(
   amount:       7500,
   description:  "Extra service",
-  redirect_url: billing_return_url # optional if default_redirect_path is configured
+  redirect_url: payment_url(payment) # optional if default_redirect_path is configured
 )
 
 redirect_to payment.checkout_url
@@ -389,7 +390,7 @@ All inherit from `MolliePay::Error < StandardError`.
 |---|---|---|---|
 | `api_key` | Yes | — | Your Mollie API key (`test_*` or `live_*`) |
 | `host` | Yes | — | Your application's public URL (e.g. `https://yourapp.com`). Used to build the webhook URL and default redirect URL. |
-| `default_redirect_path` | No | — | Path where Mollie sends customers back after payment (e.g. `/billing_return`). Combined with `host` to form the full URL. Per-call `redirect_url:` overrides this. |
+| `default_redirect_path` | No | — | Path where Mollie sends customers back after payment (e.g. `/payments/:id`). `:id` is replaced with the local payment ID. Combined with `host` to form the full URL. Per-call `redirect_url:` overrides this. |
 | `currency` | No | `"EUR"` | ISO 4217 currency code for new payments/subscriptions |
 
 ## Testing

@@ -74,8 +74,8 @@ module MolliePay
       end
     end
 
-    test "mollie_pay_once uses default_redirect_url when no redirect_url given" do
-      MolliePay.configuration.default_redirect_path = "/payments/complete"
+    test "mollie_pay_once uses default_redirect_path with :id interpolation when no redirect_url given" do
+      MolliePay.configuration.default_redirect_path = "/payments/:id"
 
       passed_redirect_url = nil
       response = fake_mollie_payment(id: "tr_default_redir")
@@ -86,15 +86,14 @@ module MolliePay
 
         assert_equal "tr_default_redir", payment.mollie_id
         assert payment.checkout_url.present?
+        assert_equal "https://example.com/payments/#{payment.id}", passed_redirect_url
       end
-
-      assert_equal "https://example.com/payments/complete", passed_redirect_url
     ensure
       MolliePay.configuration.default_redirect_path = nil
     end
 
     test "mollie_pay_once prefers per-call redirect_url over default" do
-      MolliePay.configuration.default_redirect_path = "/default"
+      MolliePay.configuration.default_redirect_path = "/payments/:id"
 
       passed_redirect_url = nil
       response = fake_mollie_payment(id: "tr_override")

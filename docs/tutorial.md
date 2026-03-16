@@ -71,14 +71,15 @@ The generated initializer looks like this:
 MolliePay.configure do |config|
   config.api_key               = ENV["MOLLIE_API_KEY"]
   config.host                  = ENV["MOLLIE_HOST"] # e.g. "https://yourapp.com"
-  config.default_redirect_path = "/billing_return"
+  config.default_redirect_path = "/payments/:id"
   config.currency              = "EUR"
 end
 ```
 
 The `host` is used to build the webhook URL automatically from the engine's
 mount path. The `default_redirect_path` is combined with `host` to form the
-full redirect URL.
+full redirect URL — `:id` is replaced with the local payment record's ID, so
+Mollie redirects the customer to the right payment page after checkout.
 
 ### Add authentication
 
@@ -390,69 +391,11 @@ Rails.application.routes.draw do
 end
 ```
 
-### Add the return controller
-
-When Mollie redirects the customer back to your `default_redirect_path`, you need
-a page to land on. Create a simple return handler:
-
-```ruby
-# app/controllers/billing_returns_controller.rb
-class BillingReturnsController < ApplicationController
-  def show
-    # Find the most recent payment for this user
-    @payment = Current.user.mollie_payments.order(created_at: :desc).first
-  end
-end
-```
-
-`app/views/billing_returns/show.html.erb`:
-
-```erb
-<div class="max-w-lg mx-auto mt-16">
-  <h1 class="text-2xl font-bold mb-6">Payment received</h1>
-
-  <% if @payment %>
-    <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-      <p class="text-gray-700">
-        Your payment (<span class="font-mono text-sm"><%= @payment.mollie_id %></span>) is currently
-        <span class="font-semibold"><%= @payment.status %></span>.
-      </p>
-
-      <% if @payment.status == "open" %>
-        <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-          Mollie is still processing your payment. This usually takes a few seconds.
-        </div>
-        <p class="mt-3">
-          <%= link_to "Refresh", billing_return_path,
-                class: "text-indigo-600 hover:underline text-sm font-medium" %>
-        </p>
-      <% elsif @payment.paid? %>
-        <div class="mt-4 bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 font-medium">
-          Thank you! Your payment has been confirmed.
-        </div>
-      <% end %>
-
-      <p class="mt-4">
-        <%= link_to "View payment details", payment_path(@payment),
-              class: "text-indigo-600 hover:underline text-sm" %>
-      </p>
-    </div>
-  <% else %>
-    <p class="text-gray-500">No recent payment found.</p>
-  <% end %>
-
-  <p class="mt-6">
-    <%= link_to "← Back to dashboard", root_path, class: "text-sm text-indigo-600 hover:underline" %>
-  </p>
-</div>
-```
-
-Add the route:
-
-```ruby
-resource :billing_return, only: :show
-```
-
+> **How the redirect works:** When the customer completes (or abandons) payment,
+> Mollie redirects them back to the `default_redirect_path` you configured —
+> `/payments/:id`. MolliePay replaces `:id` with the local payment record's ID,
+> so the customer lands directly on the payment show page.
+>
 > **Why the status might still be "open":** Mollie redirects the customer back
 > *before* the webhook fires. The customer returns to your app, but the payment
 > status update arrives asynchronously via the webhook. This is by design — the
@@ -635,7 +578,7 @@ Rails.application.routes.draw do
   resource  :session, only: [ :new, :create, :destroy ]
 
   resources :payments, only: [ :new, :create, :show ]
-  resource  :billing_return, only: :show
+
   resource  :pricing, only: :show
   resource  :subscription_setup, only: :create
   resource  :subscription, only: [ :create, :destroy ]
@@ -931,7 +874,7 @@ Rails.application.routes.draw do
   resource  :session, only: [ :new, :create, :destroy ]
 
   resources :payments, only: [ :new, :create, :show ]
-  resource  :billing_return, only: :show
+
   resource  :pricing, only: :show
   resource  :subscription_setup, only: :create
   resource  :subscription, only: [ :create, :destroy ]

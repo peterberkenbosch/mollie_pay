@@ -112,26 +112,35 @@ module MolliePay
 
     def create_mollie_payment(amount:, description:, redirect_url:, sequence_type:)
       customer = mollie_customer!
-      resolved_redirect_url = redirect_url || MolliePay.configuration.default_redirect_url
-      raise MolliePay::ConfigurationError, "No redirect_url provided and default_redirect_url is not configured" if resolved_redirect_url.blank?
 
-      mp = Mollie::Payment.create(
-        amount:       mollie_amount(amount),
-        description:  description,
-        redirectUrl:  resolved_redirect_url,
-        webhookUrl:   MolliePay.configuration.webhook_url,
-        customerId:   customer.mollie_id,
-        sequenceType: sequence_type
-      )
-      Payment.create!(
-        customer:      customer,
-        mollie_id:     mp.id,
-        status:        mp.status,
-        amount:        amount,
-        currency:      MolliePay.configuration.currency,
-        sequence_type: sequence_type,
-        checkout_url:  mp.checkout_url
-      )
+      Payment.transaction do
+        payment = Payment.create!(
+          customer:      customer,
+          amount:        amount,
+          currency:      MolliePay.configuration.currency,
+          sequence_type: sequence_type
+        )
+
+        resolved_redirect_url = redirect_url || MolliePay.configuration.redirect_url_for(payment)
+        raise MolliePay::ConfigurationError, "No redirect_url provided and default_redirect_path is not configured" if resolved_redirect_url.blank?
+
+        mp = Mollie::Payment.create(
+          amount:       mollie_amount(amount),
+          description:  description,
+          redirectUrl:  resolved_redirect_url,
+          webhookUrl:   MolliePay.configuration.webhook_url,
+          customerId:   customer.mollie_id,
+          sequenceType: sequence_type
+        )
+
+        payment.update!(
+          mollie_id:    mp.id,
+          status:       mp.status,
+          checkout_url: mp.checkout_url
+        )
+
+        payment
+      end
     end
 
     def create_mollie_customer_on_mollie

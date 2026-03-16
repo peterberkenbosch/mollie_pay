@@ -20,10 +20,11 @@ module MolliePay
       "#{host_without_trailing_slash}#{MolliePay::Engine.routes.url_helpers.webhooks_path}"
     end
 
-    def default_redirect_url
+    def redirect_url_for(payment)
       return nil if default_redirect_path.blank?
 
-      "#{host_without_trailing_slash}#{default_redirect_path}"
+      path = default_redirect_path.gsub(":id", payment.id.to_s)
+      "#{host_without_trailing_slash}#{path}"
     end
 
     def inspect
