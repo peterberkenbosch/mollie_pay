@@ -595,7 +595,7 @@ Rails.application.routes.draw do
 
   resources :payments, only: [ :new, :create, :show ]
 
-  resource  :pricing, only: :show
+  resource  :pricing, only: :show, controller: "pricing"
   resource  :subscription_setup, only: :create
   resource  :subscription, only: [ :create, :destroy ]
   resource  :billing, only: :show
@@ -891,7 +891,7 @@ Rails.application.routes.draw do
 
   resources :payments, only: [ :new, :create, :show ]
 
-  resource  :pricing, only: :show
+  resource  :pricing, only: :show, controller: "pricing"
   resource  :subscription_setup, only: :create
   resource  :subscription, only: [ :create, :destroy ]
   resource  :billing, only: :show
