@@ -48,16 +48,19 @@ Configure in `config/initializers/mollie_pay.rb`:
 
 ```ruby
 MolliePay.configure do |config|
-  config.api_key              = ENV["MOLLIE_API_KEY"]
-  config.webhook_url          = ENV["MOLLIE_WEBHOOK_URL"]          # e.g. https://yourapp.com/mollie_pay/webhooks
-  config.default_redirect_url = ENV["MOLLIE_DEFAULT_REDIRECT_URL"] # where Mollie sends customers back after payment
-  config.currency             = "EUR"                              # default
+  config.api_key               = ENV["MOLLIE_API_KEY"]
+  config.host                  = ENV["MOLLIE_HOST"]       # e.g. "https://yourapp.com"
+  config.default_redirect_path = "/billing_return"        # where Mollie sends customers back after payment
+  config.currency              = "EUR"                    # default
 end
 ```
 
-The engine validates that `api_key` and `webhook_url` are set, then
-configures the Mollie Ruby SDK automatically on boot. A missing key raises
+The engine validates that `api_key` and `host` are set, then configures the
+Mollie Ruby SDK automatically on boot. A missing key raises
 `MolliePay::ConfigurationError` at startup — not deep in a background job.
+
+The webhook URL is derived automatically from `host` and the engine's mount
+path (`/mollie_pay/webhooks`). No manual webhook URL configuration needed.
 
 ## Setup
 
@@ -373,7 +376,7 @@ MolliePay::WebhookEvent.pending
 
 | Error | Raised when |
 |---|---|
-| `MolliePay::ConfigurationError` | `api_key` or `webhook_url` is missing at boot, or no `redirect_url` is available when creating a payment |
+| `MolliePay::ConfigurationError` | `api_key` or `host` is missing at boot, or no `redirect_url` is available when creating a payment |
 | `MolliePay::MandateRequired` | `mollie_subscribe` is called without a valid mandate |
 | `MolliePay::SubscriptionNotFound` | `mollie_cancel_subscription` is called without an active subscription |
 
@@ -384,8 +387,8 @@ All inherit from `MolliePay::Error < StandardError`.
 | Option | Required | Default | Description |
 |---|---|---|---|
 | `api_key` | Yes | — | Your Mollie API key (`test_*` or `live_*`) |
-| `webhook_url` | Yes | — | Full URL where Mollie sends webhook POSTs |
-| `default_redirect_url` | No | — | Where Mollie sends customers back after payment. Per-call `redirect_url:` overrides this. |
+| `host` | Yes | — | Your application's public URL (e.g. `https://yourapp.com`). Used to build the webhook URL and default redirect URL. |
+| `default_redirect_path` | No | — | Path where Mollie sends customers back after payment (e.g. `/billing_return`). Combined with `host` to form the full URL. Per-call `redirect_url:` overrides this. |
 | `currency` | No | `"EUR"` | ISO 4217 currency code for new payments/subscriptions |
 
 ## Testing

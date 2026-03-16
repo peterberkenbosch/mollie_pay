@@ -175,9 +175,10 @@ Event hooks (override in host model, all no-ops by default):
 
 ```ruby
 MolliePay.configure do |config|
-  config.api_key     = ENV["MOLLIE_API_KEY"]
-  config.webhook_url = ENV["MOLLIE_WEBHOOK_URL"]
-  config.currency    = "EUR"
+  config.api_key               = ENV["MOLLIE_API_KEY"]
+  config.host                  = ENV["MOLLIE_HOST"]
+  config.default_redirect_path = "/billing_return"
+  config.currency              = "EUR"
 end
 ```
 

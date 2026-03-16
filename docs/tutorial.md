@@ -66,15 +66,17 @@ Create `config/initializers/mollie_pay.rb`:
 
 ```ruby
 MolliePay.configure do |config|
-  config.api_key              = ENV["MOLLIE_API_KEY"]
-  config.webhook_url          = ENV["MOLLIE_WEBHOOK_URL"]
-  config.default_redirect_url = ENV["MOLLIE_DEFAULT_REDIRECT_URL"]
-  config.currency             = "EUR"
+  config.api_key               = ENV["MOLLIE_API_KEY"]
+  config.host                  = ENV["MOLLIE_HOST"] # your tunnel URL
+  config.default_redirect_path = "/billing_return"
+  config.currency              = "EUR"
 end
 ```
 
-We'll set these environment variables later when we start the server. For now,
-the structure is in place.
+The `host` is used to build the webhook URL automatically from the engine's
+mount path. The `default_redirect_path` is combined with `host` to form the
+full redirect URL. We'll set the environment variables later when we start the
+server. For now, the structure is in place.
 
 ### Add authentication
 
@@ -739,11 +741,11 @@ under Developers → API keys.
 
 ```sh
 export MOLLIE_API_KEY="test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-export MOLLIE_WEBHOOK_URL="https://your-tunnel-url.trycloudflare.com/mollie_pay/webhooks"
-export MOLLIE_DEFAULT_REDIRECT_URL="https://your-tunnel-url.trycloudflare.com/billing_return"
+export MOLLIE_HOST="https://your-tunnel-url.trycloudflare.com"
 ```
 
 > **Replace** `your-tunnel-url.trycloudflare.com` with your actual tunnel URL.
+> The webhook URL and redirect URL are derived automatically from the host.
 
 ### Start the server
 
@@ -887,7 +889,7 @@ Current.user.mollie_refund(payment, amount: 500) # partial — €5.00
 Before going live:
 
 1. Switch to a `live_` API key
-2. Use a real domain with HTTPS for `webhook_url` and `default_redirect_url`
+2. Set `host` to your real domain with HTTPS (e.g. `https://yourapp.com`)
 3. Configure a proper queue backend (Solid Queue, Sidekiq, etc.)
 4. Add rate limiting to the webhook endpoint (see README)
 5. Set up monitoring for failed webhook jobs

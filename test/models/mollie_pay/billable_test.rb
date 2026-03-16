@@ -75,7 +75,7 @@ module MolliePay
     end
 
     test "mollie_pay_once uses default_redirect_url when no redirect_url given" do
-      MolliePay.configuration.default_redirect_url = "https://myapp.com/payments/complete"
+      MolliePay.configuration.default_redirect_path = "/payments/complete"
 
       passed_redirect_url = nil
       response = fake_mollie_payment(id: "tr_default_redir")
@@ -88,13 +88,13 @@ module MolliePay
         assert payment.checkout_url.present?
       end
 
-      assert_equal "https://myapp.com/payments/complete", passed_redirect_url
+      assert_equal "https://example.com/payments/complete", passed_redirect_url
     ensure
-      MolliePay.configuration.default_redirect_url = nil
+      MolliePay.configuration.default_redirect_path = nil
     end
 
     test "mollie_pay_once prefers per-call redirect_url over default" do
-      MolliePay.configuration.default_redirect_url = "https://myapp.com/default"
+      MolliePay.configuration.default_redirect_path = "/default"
 
       passed_redirect_url = nil
       response = fake_mollie_payment(id: "tr_override")
@@ -110,11 +110,11 @@ module MolliePay
 
       assert_equal "https://example.com/custom-return", passed_redirect_url
     ensure
-      MolliePay.configuration.default_redirect_url = nil
+      MolliePay.configuration.default_redirect_path = nil
     end
 
     test "mollie_pay_once raises when no redirect_url and no default configured" do
-      MolliePay.configuration.default_redirect_url = nil
+      MolliePay.configuration.default_redirect_path = nil
 
       assert_raises(MolliePay::ConfigurationError) do
         @org.mollie_pay_once(amount: 1000, description: "No redirect")
@@ -122,7 +122,7 @@ module MolliePay
     end
 
     test "mollie_pay_once raises when redirect_url is blank string" do
-      MolliePay.configuration.default_redirect_url = nil
+      MolliePay.configuration.default_redirect_path = nil
 
       assert_raises(MolliePay::ConfigurationError) do
         @org.mollie_pay_once(amount: 1000, description: "Blank redirect", redirect_url: "")
