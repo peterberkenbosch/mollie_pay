@@ -83,9 +83,17 @@ Mollie redirects the customer to the right payment page after checkout.
 
 ### Add authentication
 
-Rails 8 includes a built-in authentication generator:
+Rails 8 includes a built-in authentication generator. First, uncomment the
+bcrypt gem in your `Gemfile` — the auth generator requires it for
+`has_secure_password`:
+
+```ruby
+# Gemfile — uncomment this line:
+gem "bcrypt", "~> 3.1.7"
+```
 
 ```sh
+bundle install
 bin/rails generate authentication
 ```
 
