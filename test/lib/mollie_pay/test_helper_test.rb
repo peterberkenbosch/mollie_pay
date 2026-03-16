@@ -96,7 +96,9 @@ module MolliePay
     end
 
     test "webmock_mollie_subscription_create exercises full pipeline" do
-      webmock_mollie_subscription_create do
+      customer_id = @org.mollie_customer.mollie_id
+
+      webmock_mollie_subscription_create(customer_id: customer_id) do
         subscription = @org.mollie_subscribe(amount: 2500, interval: "1 month", description: "Monthly")
 
         assert_equal "sub_test1234AB", subscription.mollie_id
@@ -106,14 +108,36 @@ module MolliePay
       end
     end
 
+    test "webmock_mollie_subscription_create hits customer-nested endpoint" do
+      customer_id = @org.mollie_customer.mollie_id
+      expected_url = "#{MOLLIE_API_BASE}/customers/#{customer_id}/subscriptions"
+
+      webmock_mollie_subscription_create(customer_id: customer_id) do
+        @org.mollie_subscribe(amount: 2500, interval: "1 month", description: "Endpoint test")
+        assert_requested :post, expected_url
+      end
+    end
+
     test "webmock_mollie_subscription_cancel exercises full pipeline" do
       subscription = mollie_pay_subscriptions(:acme_monthly)
+      customer_id = @org.mollie_customer.mollie_id
 
-      webmock_mollie_subscription_cancel(subscription_id: subscription.mollie_id) do
+      webmock_mollie_subscription_cancel(customer_id: customer_id, subscription_id: subscription.mollie_id) do
         @org.mollie_cancel_subscription
       end
 
       assert_equal "canceled", subscription.reload.status
+    end
+
+    test "webmock_mollie_subscription_cancel hits customer-nested endpoint" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+      customer_id = @org.mollie_customer.mollie_id
+      expected_url = "#{MOLLIE_API_BASE}/customers/#{customer_id}/subscriptions/#{subscription.mollie_id}"
+
+      webmock_mollie_subscription_cancel(customer_id: customer_id, subscription_id: subscription.mollie_id) do
+        @org.mollie_cancel_subscription
+        assert_requested :delete, expected_url
+      end
     end
 
     test "webmock_mollie_refund_create exercises full pipeline" do
