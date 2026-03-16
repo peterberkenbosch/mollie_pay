@@ -30,7 +30,7 @@ pages and webhook processing.
 ### Create the Rails app
 
 ```sh
-rails new acme_saas --database=sqlite3 --css=tailwind
+rails new acme_saas --css=tailwind
 cd acme_saas
 ```
 
