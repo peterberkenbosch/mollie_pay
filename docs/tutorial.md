@@ -503,6 +503,24 @@ end
 
 ## Part 3: Subscriptions
 
+> **Payment method prerequisites for mandates**
+>
+> Recurring billing requires a **mandate** — permission to charge the customer's
+> payment method in the future. Not all payment methods support mandate creation.
+> Activate at least one of these in your Mollie dashboard (Settings → Website
+> profiles → Payment methods):
+>
+> | Method | Mandate type |
+> |---|---|
+> | **Credit card** | Card mandate (supports zero-amount first payments) |
+> | **iDEAL** | SEPA Direct Debit mandate |
+> | **Bancontact** | SEPA Direct Debit mandate |
+> | **PayPal** | PayPal billing agreement |
+>
+> One-off payments (`mollie_pay_once`) work with any enabled method. First
+> payments (`mollie_pay_first`) require a mandate-capable method — if none are
+> active, the Mollie API returns `422 No suitable payment methods found`.
+
 Mollie recurring billing works in two steps:
 
 1. **First payment** — establishes a *mandate* (permission to charge the
