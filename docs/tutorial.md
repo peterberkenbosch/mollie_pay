@@ -374,6 +374,9 @@ class PaymentsController < ApplicationController
     )
 
     redirect_to payment.checkout_url, allow_other_host: true
+  rescue Mollie::RequestError, MolliePay::ConfigurationError => e
+    Rails.logger.error("Mollie API error: #{e.message}")
+    redirect_to new_payment_path, alert: "Payment service unavailable. Please try again."
   end
 
   def show
@@ -621,6 +624,9 @@ class SubscriptionSetupsController < ApplicationController
     )
 
     redirect_to payment.checkout_url, allow_other_host: true
+  rescue Mollie::RequestError, MolliePay::ConfigurationError => e
+    Rails.logger.error("Mollie API error: #{e.message}")
+    redirect_to pricing_path, alert: "Payment service unavailable. Please try again."
   end
 end
 ```
@@ -657,6 +663,9 @@ class SubscriptionsController < ApplicationController
     )
 
     redirect_to billing_path, notice: "Subscription activated!"
+  rescue Mollie::RequestError, MolliePay::ConfigurationError => e
+    Rails.logger.error("Mollie API error: #{e.message}")
+    redirect_to pricing_path, alert: "Subscription could not be created. Please try again."
   end
 
   def destroy
