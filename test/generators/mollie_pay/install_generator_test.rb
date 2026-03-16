@@ -11,7 +11,7 @@ class MolliePay::Generators::InstallGeneratorTest < Rails::Generators::TestCase
   end
 
   test "copies the initializer template" do
-    run_generator ["--skip-migrations"]
+    run_generator [ "--skip-migrations" ]
 
     assert_file "config/initializers/mollie_pay.rb" do |content|
       assert_match(/MolliePay\.configure/, content)
