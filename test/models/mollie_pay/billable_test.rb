@@ -112,6 +112,57 @@ module MolliePay
       MolliePay.configuration.default_redirect_path = nil
     end
 
+    test "mollie_pay_once passes method to Mollie API when provided" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_method_once")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_once(
+          amount: 3000,
+          description: "iDEAL payment",
+          redirect_url: "https://example.com/return",
+          method: "ideal"
+        )
+      end
+
+      assert_equal "ideal", received_args[:method]
+    end
+
+    test "mollie_pay_first passes method to Mollie API when provided" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_method_first")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_first(
+          amount: 1000,
+          description: "First iDEAL",
+          redirect_url: "https://example.com/return",
+          method: "ideal"
+        )
+      end
+
+      assert_equal "ideal", received_args[:method]
+      assert_equal "first", received_args[:sequenceType]
+    end
+
+    test "mollie_pay_once passes nil method when not provided" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_no_method")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_once(
+          amount: 3000,
+          description: "No method specified",
+          redirect_url: "https://example.com/return"
+        )
+      end
+
+      assert_nil received_args[:method]
+    end
+
     test "mollie_pay_once raises when no redirect_url and no default configured" do
       MolliePay.configuration.default_redirect_path = nil
 

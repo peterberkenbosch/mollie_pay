@@ -96,7 +96,8 @@ created. The standard flow is:
 payment = current_organization.mollie_pay_first(
   amount:       1000, # 10.00 in cents
   description:  "Activation fee",
-  redirect_url: payment_url(payment) # optional if default_redirect_path is configured
+  redirect_url: payment_url(payment), # optional if default_redirect_path is configured
+  method:       "ideal" # optional — omit to let Mollie show all enabled methods
 )
 
 redirect_to payment.checkout_url
@@ -131,7 +132,8 @@ Raises `MolliePay::MandateRequired` if no valid mandate is on file.
 payment = current_organization.mollie_pay_once(
   amount:       7500,
   description:  "Extra service",
-  redirect_url: payment_url(payment) # optional if default_redirect_path is configured
+  redirect_url: payment_url(payment), # optional if default_redirect_path is configured
+  method:       "creditcard" # optional — omit to let Mollie show all enabled methods
 )
 
 redirect_to payment.checkout_url
