@@ -1,0 +1,27 @@
+{
+  "resource": "refund",
+  "id": "re_test1234AB",
+  "amount": {
+    "value": "10.00",
+    "currency": "EUR"
+  },
+  "status": "queued",
+  "createdAt": "2026-03-15T12:00:00+00:00",
+  "description": "Test refund",
+  "metadata": null,
+  "paymentId": "tr_test1234AB",
+  "_links": {
+    "self": {
+      "href": "https://api.mollie.com/v2/payments/tr_test1234AB/refunds/re_test1234AB",
+      "type": "application/hal+json"
+    },
+    "payment": {
+      "href": "https://api.mollie.com/v2/payments/tr_test1234AB",
+      "type": "application/hal+json"
+    },
+    "documentation": {
+      "href": "https://docs.mollie.com/reference/v2/refunds-api/get-refund",
+      "type": "text/html"
+    }
+  }
+}

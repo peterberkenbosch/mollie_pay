@@ -1,0 +1,36 @@
+{
+  "resource": "subscription",
+  "id": "sub_test1234AB",
+  "mode": "test",
+  "createdAt": "2026-03-15T12:00:00+00:00",
+  "status": "active",
+  "amount": {
+    "value": "25.00",
+    "currency": "EUR"
+  },
+  "times": null,
+  "timesRemaining": null,
+  "interval": "1 month",
+  "startDate": "2026-04-15",
+  "nextPaymentDate": "2026-04-15",
+  "description": "Test subscription",
+  "customerId": "cst_test1234AB",
+  "method": null,
+  "mandateId": "mdt_test1234AB",
+  "webhookUrl": "https://example.com/mollie_pay/webhooks",
+  "metadata": null,
+  "_links": {
+    "self": {
+      "href": "https://api.mollie.com/v2/customers/cst_test1234AB/subscriptions/sub_test1234AB",
+      "type": "application/hal+json"
+    },
+    "customer": {
+      "href": "https://api.mollie.com/v2/customers/cst_test1234AB",
+      "type": "application/hal+json"
+    },
+    "documentation": {
+      "href": "https://docs.mollie.com/reference/v2/subscriptions-api/get-subscription",
+      "type": "text/html"
+    }
+  }
+}

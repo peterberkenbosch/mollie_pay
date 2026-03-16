@@ -1,0 +1,36 @@
+{
+  "resource": "payment",
+  "id": "tr_test1234AB",
+  "mode": "test",
+  "createdAt": "2026-03-15T12:00:00+00:00",
+  "amount": {
+    "value": "10.00",
+    "currency": "EUR"
+  },
+  "description": "Test payment",
+  "method": null,
+  "metadata": null,
+  "status": "open",
+  "isCancelable": false,
+  "locale": "nl_NL",
+  "expiresAt": "2026-03-15T12:15:00+00:00",
+  "profileId": "pfl_TestProfile",
+  "sequenceType": "oneoff",
+  "redirectUrl": "https://example.com/return",
+  "webhookUrl": "https://example.com/mollie_pay/webhooks",
+  "customerId": "cst_test1234AB",
+  "_links": {
+    "self": {
+      "href": "https://api.mollie.com/v2/payments/tr_test1234AB",
+      "type": "application/hal+json"
+    },
+    "checkout": {
+      "href": "https://www.mollie.com/payscreen/select-method/test1234AB",
+      "type": "text/html"
+    },
+    "documentation": {
+      "href": "https://docs.mollie.com/reference/v2/payments-api/get-payment",
+      "type": "text/html"
+    }
+  }
+}

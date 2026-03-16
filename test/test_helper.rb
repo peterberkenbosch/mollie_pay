@@ -7,9 +7,11 @@ ActiveRecord::Migrator.migrations_paths << File.expand_path("../db/migrate", __d
 require "rails/test_help"
 require "minitest/mock"
 require "webmock/minitest"
+require "mollie_pay/test_helper"
 
 # Load fixtures from the engine
 ActiveSupport::TestCase.fixture_paths = [ File.expand_path("fixtures", __dir__) ]
 ActionDispatch::IntegrationTest.fixture_paths = ActiveSupport::TestCase.fixture_paths
 ActiveSupport::TestCase.file_fixture_path = File.expand_path("fixtures", __dir__) + "/files"
 ActiveSupport::TestCase.fixtures :all
+ActiveSupport::TestCase.include MolliePay::TestHelper
