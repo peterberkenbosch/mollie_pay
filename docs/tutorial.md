@@ -270,6 +270,79 @@ Create `app/views/dashboard/show.html.erb`:
 
 Don't worry about the missing routes — we'll add them in the next parts.
 
+### Add flash messages and navigation
+
+The controllers use flash messages (`notice:`, `alert:`) on redirects, but the
+default application layout doesn't render them. Let's add a flash partial and a
+navigation bar.
+
+Create `app/views/layouts/_flash.html.erb`:
+
+```erb
+<% if notice %>
+  <div class="max-w-2xl mx-auto mt-4 px-4">
+    <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
+      <%= notice %>
+    </div>
+  </div>
+<% end %>
+
+<% if alert %>
+  <div class="max-w-2xl mx-auto mt-4 px-4">
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800">
+      <%= alert %>
+    </div>
+  </div>
+<% end %>
+```
+
+Create `app/views/shared/_navbar.html.erb`:
+
+```erb
+<nav class="bg-white border-b border-gray-200">
+  <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-6">
+      <%= link_to "Acme SaaS", root_path, class: "font-bold text-gray-900" %>
+      <% if authenticated? %>
+        <%= link_to "Dashboard", root_path, class: "text-sm text-gray-600 hover:text-gray-900" %>
+        <%= link_to "Pricing", pricing_path, class: "text-sm text-gray-600 hover:text-gray-900" %>
+        <%= link_to "Billing", billing_path, class: "text-sm text-gray-600 hover:text-gray-900" %>
+      <% else %>
+        <%= link_to "Pricing", pricing_path, class: "text-sm text-gray-600 hover:text-gray-900" %>
+      <% end %>
+    </div>
+
+    <div>
+      <% if authenticated? %>
+        <span class="text-sm text-gray-500 mr-3"><%= Current.user.email_address %></span>
+        <%= button_to "Log out", session_path, method: :delete,
+              class: "text-sm text-gray-600 hover:text-gray-900 cursor-pointer" %>
+      <% else %>
+        <%= link_to "Log in", new_session_path, class: "text-sm text-gray-600 hover:text-gray-900 mr-3" %>
+        <%= link_to "Sign up", new_registration_path,
+              class: "text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700" %>
+      <% end %>
+    </div>
+  </div>
+</nav>
+```
+
+Now include both in your application layout. Open
+`app/views/layouts/application.html.erb` and update the `<body>`:
+
+```erb
+<body>
+  <%= render "shared/navbar" %>
+  <%= render "layouts/flash" %>
+  <%= yield %>
+</body>
+```
+
+> **Login page styling:** The auth generator creates a basic
+> `sessions/new.html.erb` view. It works as-is, but if you want it to match the
+> Tailwind styling of the signup page, copy the structure from
+> `registrations/new.html.erb` and adjust the form fields.
+
 ---
 
 ## Part 2: One-off payments
