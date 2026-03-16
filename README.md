@@ -497,8 +497,8 @@ All IDs default to random values (`tr_test<hex>`, etc.) when not specified.
 |---|---|---|
 | `stub_mollie_payment_create` | `Mollie::Payment.create` | `status: "open"`, random ID and checkout URL |
 | `stub_mollie_customer_and_payment_create` | `Mollie::Customer.create` + `Mollie::Payment.create` | Both with random IDs |
-| `stub_mollie_subscription_create` | `Mollie::Subscription.create` | `status: "active"`, random ID |
-| `stub_mollie_subscription_cancel` | `Mollie::Subscription.cancel` | Returns nil |
+| `stub_mollie_subscription_create` | `Mollie::Customer::Subscription.create` | `status: "active"`, random ID |
+| `stub_mollie_subscription_cancel` | `Mollie::Customer::Subscription.cancel` | Returns nil |
 | `stub_mollie_refund_create` | `Mollie::Refund.create` | `status: "queued"`, random ID |
 
 #### WebMock-based API stubs

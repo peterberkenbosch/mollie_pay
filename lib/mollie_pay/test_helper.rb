@@ -40,7 +40,7 @@ module MolliePay
       end
     end
 
-    # Stub Mollie::Subscription.create.
+    # Stub Mollie::Customer::Subscription.create.
     #
     #   stub_mollie_subscription_create do
     #     subscription = @user.mollie_subscribe(amount: 2500, interval: "1 month", description: "Monthly")
@@ -49,17 +49,17 @@ module MolliePay
     #
     def stub_mollie_subscription_create(**overrides, &block)
       response = fake_mollie_subscription(**overrides)
-      Mollie::Subscription.stub(:create, response, &block)
+      Mollie::Customer::Subscription.stub(:create, response, &block)
     end
 
-    # Stub Mollie::Subscription.cancel.
+    # Stub Mollie::Customer::Subscription.cancel.
     #
     #   stub_mollie_subscription_cancel do
     #     @user.mollie_cancel_subscription
     #   end
     #
     def stub_mollie_subscription_cancel(&block)
-      Mollie::Subscription.stub(:cancel, nil, &block)
+      Mollie::Customer::Subscription.stub(:cancel, nil, &block)
     end
 
     # Stub Mollie::Refund.create.
@@ -153,32 +153,40 @@ module MolliePay
       WebMock.reset!
     end
 
-    # Stub POST /v2/subscriptions.
-    # The Mollie SDK sends customerId in the request body, not the URL.
+    # Stub POST /v2/customers/:customer_id/subscriptions.
     #
-    #   webmock_mollie_subscription_create do
+    #   webmock_mollie_subscription_create(customer_id: "cst_abc") do
     #     subscription = @user.mollie_subscribe(amount: 2500, interval: "1 month", description: "Monthly")
     #     assert_equal "active", subscription.status
     #   end
     #
-    def webmock_mollie_subscription_create(**overrides)
+    def webmock_mollie_subscription_create(customer_id: nil, **overrides)
       body = mollie_fixture("subscription", **overrides)
-      stub_request(:post, "#{MOLLIE_API_BASE}/subscriptions")
+      url_pattern = if customer_id
+        "#{MOLLIE_API_BASE}/customers/#{customer_id}/subscriptions"
+      else
+        %r{#{MOLLIE_API_BASE}/customers/cst_\w+/subscriptions}
+      end
+      stub_request(:post, url_pattern)
         .to_return(status: 201, body: body, headers: { "Content-Type" => "application/hal+json" })
       yield
     ensure
       WebMock.reset!
     end
 
-    # Stub DELETE /v2/subscriptions/:id.
-    # The Mollie SDK sends customerId in the request body, not the URL.
+    # Stub DELETE /v2/customers/:customer_id/subscriptions/:id.
     #
-    #   webmock_mollie_subscription_cancel(subscription_id: "sub_xyz") do
+    #   webmock_mollie_subscription_cancel(customer_id: "cst_abc", subscription_id: "sub_xyz") do
     #     @user.mollie_cancel_subscription
     #   end
     #
-    def webmock_mollie_subscription_cancel(subscription_id: "sub_test1234AB")
-      stub_request(:delete, "#{MOLLIE_API_BASE}/subscriptions/#{subscription_id}")
+    def webmock_mollie_subscription_cancel(customer_id: nil, subscription_id: "sub_test1234AB")
+      url_pattern = if customer_id
+        "#{MOLLIE_API_BASE}/customers/#{customer_id}/subscriptions/#{subscription_id}"
+      else
+        %r{#{MOLLIE_API_BASE}/customers/cst_\w+/subscriptions/#{subscription_id}}
+      end
+      stub_request(:delete, url_pattern)
         .to_return(status: 204, body: "", headers: {})
       yield
     ensure
