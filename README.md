@@ -30,13 +30,14 @@ Add to your Gemfile:
 gem "mollie_pay"
 ```
 
-Install and run migrations:
+Install:
 
 ```sh
 bundle install
-bin/rails mollie_pay:install:migrations
-bin/rails db:migrate
+bin/rails generate mollie_pay:install
 ```
+
+This creates the initializer, copies migrations, and runs them.
 
 Mount the engine in `config/routes.rb`:
 
@@ -44,7 +45,7 @@ Mount the engine in `config/routes.rb`:
 mount MolliePay::Engine => "/mollie_pay"
 ```
 
-Configure in `config/initializers/mollie_pay.rb`:
+The generated initializer at `config/initializers/mollie_pay.rb`:
 
 ```ruby
 MolliePay.configure do |config|

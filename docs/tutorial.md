@@ -42,17 +42,20 @@ Add to your `Gemfile`:
 gem "mollie_pay", github: "peterberkenbosch/mollie_pay"
 ```
 
-Install and run migrations:
+Install MolliePay:
 
 ```sh
 bundle install
-bin/rails mollie_pay:install:migrations
-bin/rails db:migrate
+bin/rails generate mollie_pay:install
 ```
+
+This creates the initializer at `config/initializers/mollie_pay.rb`, copies the
+migrations, and runs them. Open the generated initializer and review the
+defaults — we'll set the environment variables later when we start the server.
 
 ### Mount the engine
 
-In `config/routes.rb`:
+Add the engine route to `config/routes.rb`:
 
 ```ruby
 Rails.application.routes.draw do
@@ -60,14 +63,12 @@ Rails.application.routes.draw do
 end
 ```
 
-### Configure MolliePay
-
-Create `config/initializers/mollie_pay.rb`:
+The generated initializer looks like this:
 
 ```ruby
 MolliePay.configure do |config|
   config.api_key               = ENV["MOLLIE_API_KEY"]
-  config.host                  = ENV["MOLLIE_HOST"] # your tunnel URL
+  config.host                  = ENV["MOLLIE_HOST"] # e.g. "https://yourapp.com"
   config.default_redirect_path = "/billing_return"
   config.currency              = "EUR"
 end
@@ -75,8 +76,7 @@ end
 
 The `host` is used to build the webhook URL automatically from the engine's
 mount path. The `default_redirect_path` is combined with `host` to form the
-full redirect URL. We'll set the environment variables later when we start the
-server. For now, the structure is in place.
+full redirect URL.
 
 ### Add authentication
 
