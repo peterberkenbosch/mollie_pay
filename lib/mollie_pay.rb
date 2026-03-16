@@ -1,3 +1,4 @@
+require "mollie-api-ruby"
 require "mollie_pay/version"
 require "mollie_pay/errors"
 require "mollie_pay/configuration"
