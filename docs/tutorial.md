@@ -30,9 +30,11 @@ pages and webhook processing.
 ### Create the Rails app
 
 ```sh
-rails new acme_saas --database=sqlite3
+rails new acme_saas --database=sqlite3 --css=tailwind
 cd acme_saas
 ```
+
+The `--css=tailwind` flag sets up Tailwind CSS via the `tailwindcss-rails` gem.
 
 ### Add MolliePay
 
@@ -130,13 +132,13 @@ end
 Create the signup view at `app/views/registrations/new.html.erb`:
 
 ```erb
-<h1>Sign up</h1>
+<div class="max-w-md mx-auto mt-16">
+  <h1 class="text-2xl font-bold mb-6">Sign up</h1>
 
-<%= form_with model: @user, url: registration_path do |form| %>
   <% if @user.errors.any? %>
-    <div id="error_explanation">
-      <h2><%= pluralize(@user.errors.count, "error") %> prevented signup:</h2>
-      <ul>
+    <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-6">
+      <h2 class="font-semibold mb-2"><%= pluralize(@user.errors.count, "error") %> prevented signup:</h2>
+      <ul class="list-disc list-inside text-sm">
         <% @user.errors.full_messages.each do |message| %>
           <li><%= message %></li>
         <% end %>
@@ -144,27 +146,35 @@ Create the signup view at `app/views/registrations/new.html.erb`:
     </div>
   <% end %>
 
-  <div>
-    <%= form.label :email_address %>
-    <%= form.email_field :email_address, required: true %>
-  </div>
+  <%= form_with model: @user, url: registration_path, class: "space-y-4" do |form| %>
+    <div>
+      <%= form.label :email_address, class: "block text-sm font-medium text-gray-700 mb-1" %>
+      <%= form.email_field :email_address, required: true,
+            class: "w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+    </div>
 
-  <div>
-    <%= form.label :password %>
-    <%= form.password_field :password, required: true %>
-  </div>
+    <div>
+      <%= form.label :password, class: "block text-sm font-medium text-gray-700 mb-1" %>
+      <%= form.password_field :password, required: true,
+            class: "w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+    </div>
 
-  <div>
-    <%= form.label :password_confirmation %>
-    <%= form.password_field :password_confirmation, required: true %>
-  </div>
+    <div>
+      <%= form.label :password_confirmation, class: "block text-sm font-medium text-gray-700 mb-1" %>
+      <%= form.password_field :password_confirmation, required: true,
+            class: "w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+    </div>
 
-  <div>
-    <%= form.submit "Sign up" %>
-  </div>
-<% end %>
+    <div>
+      <%= form.submit "Sign up",
+            class: "w-full bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 cursor-pointer" %>
+    </div>
+  <% end %>
 
-<p>Already have an account? <%= link_to "Log in", new_session_path %></p>
+  <p class="mt-4 text-sm text-gray-600">
+    Already have an account? <%= link_to "Log in", new_session_path, class: "text-indigo-600 hover:underline" %>
+  </p>
+</div>
 ```
 
 Add the routes in `config/routes.rb`. The authentication generator already added
@@ -215,17 +225,30 @@ end
 Create `app/views/dashboard/show.html.erb`:
 
 ```erb
-<h1>Dashboard</h1>
+<div class="max-w-2xl mx-auto mt-16">
+  <h1 class="text-2xl font-bold mb-2">Dashboard</h1>
+  <p class="text-gray-600 mb-8">Welcome, <%= Current.user.email_address %>!</p>
 
-<p>Welcome, <%= Current.user.email_address %>!</p>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <%= link_to new_payment_path,
+          class: "block p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition" do %>
+      <h2 class="font-semibold text-gray-900">Make a payment</h2>
+      <p class="text-sm text-gray-500 mt-1">One-off payment via Mollie</p>
+    <% end %>
 
-<nav>
-  <ul>
-    <li><%= link_to "Make a payment", new_payment_path %></li>
-    <li><%= link_to "Subscriptions", pricing_path %></li>
-    <li><%= link_to "Billing", billing_path %></li>
-  </ul>
-</nav>
+    <%= link_to pricing_path,
+          class: "block p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition" do %>
+      <h2 class="font-semibold text-gray-900">Subscriptions</h2>
+      <p class="text-sm text-gray-500 mt-1">Monthly or yearly plans</p>
+    <% end %>
+
+    <%= link_to billing_path,
+          class: "block p-6 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition" do %>
+      <h2 class="font-semibold text-gray-900">Billing</h2>
+      <p class="text-sm text-gray-500 mt-1">Payment history & subscription</p>
+    <% end %>
+  </div>
+</div>
 ```
 
 Don't worry about the missing routes — we'll add them in the next parts.
@@ -273,60 +296,81 @@ end
 `app/views/payments/new.html.erb`:
 
 ```erb
-<h1>Make a payment</h1>
+<div class="max-w-md mx-auto mt-16">
+  <h1 class="text-2xl font-bold mb-6">Make a payment</h1>
 
-<%= form_with url: payments_path, method: :post do |form| %>
-  <div>
-    <%= form.label :amount, "Amount (in cents)" %>
-    <%= form.number_field :amount, value: 1000, min: 100, step: 100 %>
-    <small>e.g. 1000 = €10.00</small>
-  </div>
+  <%= form_with url: payments_path, method: :post, class: "space-y-4" do |form| %>
+    <div>
+      <%= form.label :amount, "Amount (in cents)",
+            class: "block text-sm font-medium text-gray-700 mb-1" %>
+      <%= form.number_field :amount, value: 1000, min: 100, step: 100,
+            class: "w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+      <p class="text-xs text-gray-500 mt-1">e.g. 1000 = €10.00</p>
+    </div>
 
-  <div>
-    <%= form.label :description %>
-    <%= form.text_field :description, value: "Test payment" %>
-  </div>
+    <div>
+      <%= form.label :description,
+            class: "block text-sm font-medium text-gray-700 mb-1" %>
+      <%= form.text_field :description, value: "Test payment",
+            class: "w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+    </div>
 
-  <div>
-    <%= form.submit "Pay with Mollie" %>
-  </div>
-<% end %>
+    <div>
+      <%= form.submit "Pay with Mollie",
+            class: "w-full bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 cursor-pointer" %>
+    </div>
+  <% end %>
+</div>
 ```
 
 `app/views/payments/show.html.erb`:
 
 ```erb
-<h1>Payment <%= @payment.mollie_id %></h1>
+<div class="max-w-lg mx-auto mt-16">
+  <h1 class="text-2xl font-bold mb-6">Payment <%= @payment.mollie_id %></h1>
 
-<dl>
-  <dt>Status</dt>
-  <dd><%= @payment.status %></dd>
+  <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-3">
+    <div class="flex justify-between">
+      <span class="text-sm text-gray-500">Status</span>
+      <span class="font-medium"><%= @payment.status %></span>
+    </div>
+    <div class="flex justify-between">
+      <span class="text-sm text-gray-500">Amount</span>
+      <span class="font-medium">€<%= format("%.2f", @payment.amount_decimal) %></span>
+    </div>
+    <div class="flex justify-between">
+      <span class="text-sm text-gray-500">Created</span>
+      <span class="font-medium"><%= @payment.created_at.strftime("%d %b %Y %H:%M") %></span>
+    </div>
+    <% if @payment.paid_at %>
+      <div class="flex justify-between">
+        <span class="text-sm text-gray-500">Paid at</span>
+        <span class="font-medium"><%= @payment.paid_at.strftime("%d %b %Y %H:%M") %></span>
+      </div>
+    <% end %>
+  </div>
 
-  <dt>Amount</dt>
-  <dd>€<%= format("%.2f", @payment.amount_decimal) %></dd>
+  <div class="mt-6">
+    <% if @payment.status == "open" %>
+      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+        Waiting for payment confirmation from Mollie...
+        <%= link_to "Refresh", payment_path(@payment), class: "underline font-medium" %>
+      </div>
+    <% elsif @payment.paid? %>
+      <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800 font-medium">
+        Payment successful!
+      </div>
+    <% else %>
+      <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700">
+        Payment status: <%= @payment.status %>
+      </div>
+    <% end %>
+  </div>
 
-  <dt>Created</dt>
-  <dd><%= @payment.created_at.strftime("%d %b %Y %H:%M") %></dd>
-
-  <% if @payment.paid_at %>
-    <dt>Paid at</dt>
-    <dd><%= @payment.paid_at.strftime("%d %b %Y %H:%M") %></dd>
-  <% end %>
-</dl>
-
-<p>
-  <% if @payment.status == "open" %>
-    <em>Waiting for payment confirmation from Mollie...</em>
-    <br>
-    <%= link_to "Refresh", payment_path(@payment) %>
-  <% elsif @payment.paid? %>
-    <strong>Payment successful!</strong>
-  <% else %>
-    Payment status: <%= @payment.status %>
-  <% end %>
-</p>
-
-<p><%= link_to "Back to dashboard", root_path %></p>
+  <p class="mt-6">
+    <%= link_to "← Back to dashboard", root_path, class: "text-sm text-indigo-600 hover:underline" %>
+  </p>
+</div>
 ```
 
 ### Add routes
@@ -364,30 +408,43 @@ end
 `app/views/billing_returns/show.html.erb`:
 
 ```erb
-<h1>Payment received</h1>
+<div class="max-w-lg mx-auto mt-16">
+  <h1 class="text-2xl font-bold mb-6">Payment received</h1>
 
-<% if @payment %>
-  <p>
-    Your payment (<%= @payment.mollie_id %>) is currently
-    <strong><%= @payment.status %></strong>.
-  </p>
+  <% if @payment %>
+    <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+      <p class="text-gray-700">
+        Your payment (<span class="font-mono text-sm"><%= @payment.mollie_id %></span>) is currently
+        <span class="font-semibold"><%= @payment.status %></span>.
+      </p>
 
-  <% if @payment.status == "open" %>
-    <p>
-      <em>Mollie is still processing your payment. This usually takes a few
-      seconds.</em>
-    </p>
-    <p><%= link_to "Refresh", billing_return_path %></p>
-  <% elsif @payment.paid? %>
-    <p>Thank you! Your payment has been confirmed.</p>
+      <% if @payment.status == "open" %>
+        <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+          Mollie is still processing your payment. This usually takes a few seconds.
+        </div>
+        <p class="mt-3">
+          <%= link_to "Refresh", billing_return_path,
+                class: "text-indigo-600 hover:underline text-sm font-medium" %>
+        </p>
+      <% elsif @payment.paid? %>
+        <div class="mt-4 bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 font-medium">
+          Thank you! Your payment has been confirmed.
+        </div>
+      <% end %>
+
+      <p class="mt-4">
+        <%= link_to "View payment details", payment_path(@payment),
+              class: "text-indigo-600 hover:underline text-sm" %>
+      </p>
+    </div>
+  <% else %>
+    <p class="text-gray-500">No recent payment found.</p>
   <% end %>
 
-  <p><%= link_to "View payment details", payment_path(@payment) %></p>
-<% else %>
-  <p>No recent payment found.</p>
-<% end %>
-
-<p><%= link_to "Back to dashboard", root_path %></p>
+  <p class="mt-6">
+    <%= link_to "← Back to dashboard", root_path, class: "text-sm text-indigo-600 hover:underline" %>
+  </p>
+</div>
 ```
 
 Add the route:
@@ -444,42 +501,53 @@ end
 `app/views/pricing/show.html.erb`:
 
 ```erb
-<h1>Choose your plan</h1>
+<div class="max-w-2xl mx-auto mt-16">
+  <h1 class="text-2xl font-bold mb-6">Choose your plan</h1>
 
-<% if Current.user.mollie_subscribed? %>
-  <p>
-    You're currently subscribed to the <strong><%= Current.user.plan %></strong> plan.
-    <%= link_to "Manage subscription", billing_path %>
-  </p>
-<% else %>
-  <% @plans.each do |key, plan| %>
-    <div style="border: 1px solid #ccc; padding: 1em; margin: 1em 0;">
-      <h2><%= plan[:label] %></h2>
-      <p><strong><%= plan[:price] %></strong></p>
+  <% if Current.user.mollie_subscribed? %>
+    <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+      <p class="text-green-800">
+        You're currently subscribed to the <strong><%= Current.user.plan %></strong> plan.
+      </p>
+      <p class="mt-2">
+        <%= link_to "Manage subscription", billing_path,
+              class: "text-green-700 font-medium hover:underline" %>
+      </p>
+    </div>
+  <% else %>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <% @plans.each do |key, plan| %>
+        <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 flex flex-col">
+          <h2 class="text-lg font-semibold text-gray-900"><%= plan[:label] %></h2>
+          <p class="text-2xl font-bold text-gray-900 mt-2"><%= plan[:price] %></p>
 
-      <% if Current.user.mollie_mandated? %>
-        <%= button_to "Subscribe",
-              subscriptions_path,
-              params: { plan: key },
-              method: :post %>
-      <% else %>
-        <%= button_to "Get started",
-              subscription_setup_path,
-              params: { plan: key },
-              method: :post %>
+          <div class="mt-auto pt-6">
+            <% if Current.user.mollie_mandated? %>
+              <%= button_to "Subscribe",
+                    subscriptions_path,
+                    params: { plan: key },
+                    method: :post,
+                    class: "w-full bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 cursor-pointer" %>
+            <% else %>
+              <%= button_to "Get started",
+                    subscription_setup_path,
+                    params: { plan: key },
+                    method: :post,
+                    class: "w-full bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 cursor-pointer" %>
+            <% end %>
+          </div>
+        </div>
       <% end %>
     </div>
-  <% end %>
 
-  <% unless Current.user.mollie_mandated? %>
-    <p>
-      <small>
+    <% unless Current.user.mollie_mandated? %>
+      <p class="mt-6 text-sm text-gray-500">
         A small first payment (€0.01) establishes your payment method.
         Your subscription starts after this payment is confirmed.
-      </small>
-    </p>
+      </p>
+    <% end %>
   <% end %>
-<% end %>
+</div>
 ```
 
 > **Two buttons:** If the user already has a mandate (from a previous payment),
@@ -629,72 +697,112 @@ end
 `app/views/billings/show.html.erb`:
 
 ```erb
-<h1>Billing</h1>
+<div class="max-w-3xl mx-auto mt-16">
+  <h1 class="text-2xl font-bold mb-8">Billing</h1>
 
-<h2>Subscription</h2>
+  <%# ── Subscription ── %>
+  <section class="mb-8">
+    <h2 class="text-lg font-semibold text-gray-900 mb-3">Subscription</h2>
 
-<% if @subscription&.active? %>
-  <dl>
-    <dt>Plan</dt>
-    <dd><%= Current.user.plan&.capitalize || "Active" %></dd>
+    <% if @subscription&.active? %>
+      <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+        <div class="space-y-3">
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-500">Plan</span>
+            <span class="font-medium"><%= Current.user.plan&.capitalize || "Active" %></span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-500">Status</span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <%= @subscription.status %>
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-500">Amount</span>
+            <span class="font-medium">€<%= format("%.2f", @subscription.amount_decimal) %> / <%= @subscription.interval %></span>
+          </div>
+        </div>
 
-    <dt>Status</dt>
-    <dd><%= @subscription.status %></dd>
+        <div class="mt-6 pt-4 border-t border-gray-100">
+          <%= button_to "Cancel subscription", subscription_path, method: :delete,
+                data: { turbo_confirm: "Are you sure you want to cancel?" },
+                class: "text-sm text-red-600 hover:text-red-800 font-medium cursor-pointer" %>
+        </div>
+      </div>
+    <% else %>
+      <div class="bg-gray-50 rounded-lg border border-gray-200 p-6 text-gray-500">
+        No active subscription.
+        <%= link_to "View plans", pricing_path, class: "text-indigo-600 hover:underline font-medium" %>
+      </div>
+    <% end %>
+  </section>
 
-    <dt>Amount</dt>
-    <dd>€<%= format("%.2f", @subscription.amount_decimal) %> / <%= @subscription.interval %></dd>
-  </dl>
+  <%# ── Payment method ── %>
+  <section class="mb-8">
+    <h2 class="text-lg font-semibold text-gray-900 mb-3">Payment method</h2>
 
-  <%= button_to "Cancel subscription", subscription_path, method: :delete,
-        data: { turbo_confirm: "Are you sure you want to cancel?" } %>
-<% else %>
-  <p>No active subscription. <%= link_to "View plans", pricing_path %></p>
-<% end %>
+    <% if @mandate %>
+      <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+        <div class="space-y-3">
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-500">Method</span>
+            <span class="font-medium"><%= @mandate.method %></span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-500">Status</span>
+            <span class="font-medium"><%= @mandate.status %></span>
+          </div>
+        </div>
+      </div>
+    <% else %>
+      <div class="bg-gray-50 rounded-lg border border-gray-200 p-6 text-gray-500">
+        No payment method on file.
+      </div>
+    <% end %>
+  </section>
 
-<h2>Payment method</h2>
+  <%# ── Payment history ── %>
+  <section>
+    <h2 class="text-lg font-semibold text-gray-900 mb-3">Payment history</h2>
 
-<% if @mandate %>
-  <dl>
-    <dt>Method</dt>
-    <dd><%= @mandate.method %></dd>
+    <% if @payments.any? %>
+      <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment ID</th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th class="px-6 py-3"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            <% @payments.each do |payment| %>
+              <tr>
+                <td class="px-6 py-4 text-sm text-gray-700"><%= payment.created_at.strftime("%d %b %Y") %></td>
+                <td class="px-6 py-4 text-sm font-mono text-gray-500"><%= payment.mollie_id %></td>
+                <td class="px-6 py-4 text-sm text-gray-700 text-right">€<%= format("%.2f", payment.amount_decimal) %></td>
+                <td class="px-6 py-4 text-sm"><%= payment.status %></td>
+                <td class="px-6 py-4 text-sm text-right">
+                  <%= link_to "View", payment_path(payment), class: "text-indigo-600 hover:underline" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <div class="bg-gray-50 rounded-lg border border-gray-200 p-6 text-gray-500">
+        No payments yet.
+      </div>
+    <% end %>
+  </section>
 
-    <dt>Status</dt>
-    <dd><%= @mandate.status %></dd>
-  </dl>
-<% else %>
-  <p>No payment method on file.</p>
-<% end %>
-
-<h2>Payment history</h2>
-
-<% if @payments.any? %>
-  <table>
-    <thead>
-      <tr>
-        <th>Date</th>
-        <th>Payment ID</th>
-        <th>Amount</th>
-        <th>Status</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      <% @payments.each do |payment| %>
-        <tr>
-          <td><%= payment.created_at.strftime("%d %b %Y") %></td>
-          <td><%= payment.mollie_id %></td>
-          <td>€<%= format("%.2f", payment.amount_decimal) %></td>
-          <td><%= payment.status %></td>
-          <td><%= link_to "View", payment_path(payment) %></td>
-        </tr>
-      <% end %>
-    </tbody>
-  </table>
-<% else %>
-  <p>No payments yet.</p>
-<% end %>
-
-<p><%= link_to "Back to dashboard", root_path %></p>
+  <p class="mt-8">
+    <%= link_to "← Back to dashboard", root_path, class: "text-sm text-indigo-600 hover:underline" %>
+  </p>
+</div>
 ```
 
 ---
@@ -750,8 +858,11 @@ export MOLLIE_HOST="https://your-tunnel-url.trycloudflare.com"
 ### Start the server
 
 ```sh
-bin/rails server
+bin/dev
 ```
+
+> **Note:** Use `bin/dev` instead of `bin/rails server` — this starts both the
+> Rails server and the Tailwind CSS watcher via Foreman.
 
 ### Test the flow
 
