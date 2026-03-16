@@ -215,11 +215,19 @@ class User < ApplicationRecord
   normalizes :email_address, with: -> (e) { e.strip.downcase }
 
   validates :email_address, presence: true, uniqueness: true
+
+  # Rails 8 auth uses email_address; Mollie expects email
+  alias_attribute :email, :email_address
 end
 ```
 
 > **Note:** MolliePay uses a polymorphic association, so it works with any model
 > name — `User`, `Account`, `Organization`, `Team`, etc.
+>
+> **Why `alias_attribute`?** The Rails 8 auth generator creates an
+> `email_address` column, but `Billable#create_mollie_customer_on_mollie` checks
+> for `email`. Without the alias, Mollie customers are created without an email
+> address, which degrades identification in the Mollie dashboard.
 
 ### Create the dashboard
 
