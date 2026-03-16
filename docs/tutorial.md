@@ -445,6 +445,8 @@ bin/rails db:migrate
 ```ruby
 # app/controllers/pricing_controller.rb
 class PricingController < ApplicationController
+  allow_unauthenticated_access only: :show
+
   PLANS = {
     "monthly" => { amount: 2500,  interval: "1 month",   label: "Monthly",  price: "€25/month" },
     "yearly"  => { amount: 25000, interval: "12 months", label: "Yearly",   price: "€250/year (save €50)" }
@@ -463,7 +465,7 @@ end
 <div class="max-w-2xl mx-auto mt-16">
   <h1 class="text-2xl font-bold mb-6">Choose your plan</h1>
 
-  <% if Current.user.mollie_subscribed? %>
+  <% if Current.user&.mollie_subscribed? %>
     <div class="bg-green-50 border border-green-200 rounded-lg p-6">
       <p class="text-green-800">
         You're currently subscribed to the <strong><%= Current.user.plan %></strong> plan.
@@ -481,25 +483,29 @@ end
           <p class="text-2xl font-bold text-gray-900 mt-2"><%= plan[:price] %></p>
 
           <div class="mt-auto pt-6">
-            <% if Current.user.mollie_mandated? %>
+            <% if Current.user&.mollie_mandated? %>
               <%= button_to "Subscribe",
                     subscriptions_path,
                     params: { plan: key },
                     method: :post,
                     class: "w-full bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 cursor-pointer" %>
-            <% else %>
+            <% elsif authenticated? %>
               <%= button_to "Get started",
                     subscription_setup_path,
                     params: { plan: key },
                     method: :post,
                     class: "w-full bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 cursor-pointer" %>
+            <% else %>
+              <%= link_to "Sign up to get started",
+                    new_registration_path,
+                    class: "block w-full text-center bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700" %>
             <% end %>
           </div>
         </div>
       <% end %>
     </div>
 
-    <% unless Current.user.mollie_mandated? %>
+    <% if authenticated? && !Current.user.mollie_mandated? %>
       <p class="mt-6 text-sm text-gray-500">
         A small first payment (€0.01) establishes your payment method.
         Your subscription starts after this payment is confirmed.
