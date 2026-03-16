@@ -717,19 +717,17 @@ Rails.application.routes.draw do
 end
 ```
 
-### Handle the mandate webhook
+### Auto-subscribe after first payment
 
 When the first payment completes, Mollie fires a webhook. MolliePay processes it
-and calls the `on_mollie_first_payment_paid` hook on your model. This is where
-you can notify the user or auto-subscribe them.
+and calls `on_mollie_first_payment_paid` on your model. Without this hook, users
+would pay €0.01, get a mandate, and then need to manually navigate back to the
+pricing page and click "Subscribe" — a confusing experience.
 
-For this tutorial, we'll keep it simple — the user returns from Mollie, sees that
-their mandate is established, and clicks "Subscribe" on the pricing page.
-
-But if you want to auto-subscribe, add this to your `User` model:
+Add the auto-subscribe hook to your `User` model:
 
 ```ruby
-# app/models/user.rb (optional — auto-subscribe after first payment)
+# app/models/user.rb — add this method to the User class
 def on_mollie_first_payment_paid(payment)
   return unless plan.present?
 
@@ -745,8 +743,8 @@ end
 ```
 
 > **Important:** This hook runs in a background job (via Active Job), not in the
-> user's HTTP request. That's why we stored the plan on the User model — the hook
-> needs to know which plan was chosen.
+> user's HTTP request. That's why we stored the plan on the User model earlier —
+> the hook needs to know which plan was chosen.
 
 ---
 
@@ -1016,31 +1014,6 @@ end
 ---
 
 ## Going further
-
-### Auto-subscribe after first payment
-
-Instead of making the user click "Subscribe" after their mandate is established,
-you can auto-subscribe in the webhook hook:
-
-```ruby
-# app/models/user.rb
-def on_mollie_first_payment_paid(payment)
-  return unless plan.present?
-
-  plan_details = PricingController::PLANS[plan]
-  return unless plan_details
-
-  mollie_subscribe(
-    amount:      plan_details[:amount],
-    interval:    plan_details[:interval],
-    description: "Acme SaaS #{plan_details[:label]} subscription"
-  )
-end
-```
-
-This runs in the background via Active Job when Mollie confirms the first
-payment. The user's plan was stored on their record when they clicked
-"Get started", so the hook knows which plan to activate.
 
 ### Plan upgrades and downgrades
 
