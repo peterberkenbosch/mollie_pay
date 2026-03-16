@@ -195,6 +195,42 @@ module MolliePay
       end
     end
 
+    test "mollie_subscribe calls Mollie::Customer::Subscription.create with customer_id" do
+      received_args = nil
+      response = fake_mollie_subscription(id: "sub_api_class_test")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Customer::Subscription.stub(:create, fake_create) do
+        @org.mollie_subscribe(
+          amount: 2500,
+          interval: "1 month",
+          description: "API class test"
+        )
+      end
+
+      assert_not_nil received_args, "Mollie::Customer::Subscription.create was not called"
+      assert_equal @org.mollie_customer.mollie_id, received_args[:customer_id]
+      assert_equal({ currency: "EUR", value: "25.00" }, received_args[:amount])
+      assert_equal "1 month", received_args[:interval]
+      assert_equal "API class test", received_args[:description]
+    end
+
+    test "mollie_subscribe does not call top-level Mollie::Subscription" do
+      called = false
+      top_level_create = ->(**_args) { called = true; fake_mollie_subscription }
+
+      # Stub the correct class to succeed
+      response = fake_mollie_subscription(id: "sub_correct")
+      Mollie::Customer::Subscription.stub(:create, response) do
+        # Stub the wrong class to detect if it's called
+        Mollie::Subscription.stub(:create, top_level_create) do
+          @org.mollie_subscribe(amount: 2500, interval: "1 month", description: "Test")
+        end
+      end
+
+      assert_not called, "Top-level Mollie::Subscription.create should not be called"
+    end
+
     test "mollie_cancel_subscription raises without active subscription" do
       org = Organization.create!(name: "New Org", email: "new@org.nl")
       assert_raises(MolliePay::SubscriptionNotFound) do
@@ -212,6 +248,20 @@ module MolliePay
 
       assert_equal "canceled", subscription.reload.status
       assert_not_nil subscription.canceled_at
+    end
+
+    test "mollie_cancel_subscription calls Mollie::Customer::Subscription.cancel" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+      received_id = nil
+      received_options = nil
+      fake_cancel = ->(id, **opts) { received_id = id; received_options = opts; nil }
+
+      Mollie::Customer::Subscription.stub(:cancel, fake_cancel) do
+        @org.mollie_cancel_subscription
+      end
+
+      assert_equal subscription.mollie_id, received_id
+      assert_equal @org.mollie_customer.mollie_id, received_options[:customer_id]
     end
 
     test "on_mollie_* hooks are defined and callable" do

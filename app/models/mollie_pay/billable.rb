@@ -29,12 +29,12 @@ module MolliePay
       raise MolliePay::MandateRequired, "No valid mandate on file" unless mollie_mandated?
 
       customer = mollie_customer!
-      ms = Mollie::Subscription.create(
-        customerId:  customer.mollie_id,
+      ms = Mollie::Customer::Subscription.create(
+        customer_id: customer.mollie_id,
         amount:      mollie_amount(amount),
         interval:    interval,
         description: description,
-        webhookUrl:  MolliePay.configuration.webhook_url
+        webhook_url: MolliePay.configuration.webhook_url
       )
       Subscription.create!(
         customer:  customer,
@@ -50,7 +50,7 @@ module MolliePay
       subscription = mollie_subscription
       raise MolliePay::SubscriptionNotFound, "No active subscription" unless subscription
 
-      Mollie::Subscription.cancel(
+      Mollie::Customer::Subscription.cancel(
         subscription.mollie_id,
         customer_id: mollie_customer.mollie_id
       )
