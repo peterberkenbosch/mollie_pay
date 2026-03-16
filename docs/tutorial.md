@@ -266,7 +266,7 @@ end
 > **What's happening:** `mollie_pay_once` creates a payment on Mollie's API,
 > stores the local record, and returns it with the `checkout_url` populated.
 > We redirect the user to Mollie's hosted payment page. After they complete (or
-> abandon) payment, Mollie redirects them back to `default_redirect_url`.
+> abandon) payment, Mollie redirects them back to the `default_redirect_path`.
 
 ### Add the views
 
@@ -348,7 +348,7 @@ end
 
 ### Add the return controller
 
-When Mollie redirects the customer back to your `default_redirect_url`, you need
+When Mollie redirects the customer back to your `default_redirect_path`, you need
 a page to land on. Create a simple return handler:
 
 ```ruby

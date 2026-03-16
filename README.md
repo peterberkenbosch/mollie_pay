@@ -95,7 +95,7 @@ created. The standard flow is:
 payment = current_organization.mollie_pay_first(
   amount:       1000, # 10.00 in cents
   description:  "Activation fee",
-  redirect_url: billing_return_url # optional if default_redirect_url is configured
+  redirect_url: billing_return_url # optional if default_redirect_path is configured
 )
 
 redirect_to payment.checkout_url
@@ -108,7 +108,7 @@ another method. Mollie fires a webhook. MolliePay stores the mandate
 automatically.
 
 When the customer finishes (or abandons) payment, Mollie redirects them back to
-the `redirect_url` you provided. If you configured `default_redirect_url`, you
+the `redirect_url` you provided. If you configured `default_redirect_path`, you
 can omit `redirect_url:` from the call.
 
 **2. Subscribe — requires a valid mandate**
@@ -129,7 +129,7 @@ Raises `MolliePay::MandateRequired` if no valid mandate is on file.
 payment = current_organization.mollie_pay_once(
   amount:       7500,
   description:  "Extra service",
-  redirect_url: billing_return_url # optional if default_redirect_url is configured
+  redirect_url: billing_return_url # optional if default_redirect_path is configured
 )
 
 redirect_to payment.checkout_url
