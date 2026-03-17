@@ -25,6 +25,12 @@ module MolliePay
       payment = find_or_initialize_by(mollie_id: mp.id)
       previous_status = payment.status
 
+      # Link recurring payments to their subscription
+      if mp.subscription_id.present? && payment.subscription_id.nil?
+        subscription = Subscription.find_by(mollie_id: mp.subscription_id)
+        payment.subscription = subscription if subscription
+      end
+
       payment.update!(
         customer:      customer,
         status:        mp.status,
