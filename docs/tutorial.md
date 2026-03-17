@@ -83,9 +83,17 @@ Mollie redirects the customer to the right payment page after checkout.
 
 ### Add authentication
 
-Rails 8 includes a built-in authentication generator:
+Rails 8 includes a built-in authentication generator. First, uncomment the
+bcrypt gem in your `Gemfile` — the auth generator requires it for
+`has_secure_password`:
+
+```ruby
+# Gemfile — uncomment this line:
+gem "bcrypt", "~> 3.1.7"
+```
 
 ```sh
+bundle install
 bin/rails generate authentication
 ```
 
@@ -207,11 +215,19 @@ class User < ApplicationRecord
   normalizes :email_address, with: -> (e) { e.strip.downcase }
 
   validates :email_address, presence: true, uniqueness: true
+
+  # Rails 8 auth uses email_address; Mollie expects email
+  alias_attribute :email, :email_address
 end
 ```
 
 > **Note:** MolliePay uses a polymorphic association, so it works with any model
 > name — `User`, `Account`, `Organization`, `Team`, etc.
+>
+> **Why `alias_attribute`?** The Rails 8 auth generator creates an
+> `email_address` column, but `Billable#create_mollie_customer_on_mollie` checks
+> for `email`. Without the alias, Mollie customers are created without an email
+> address, which degrades identification in the Mollie dashboard.
 
 ### Create the dashboard
 
@@ -254,12 +270,91 @@ Create `app/views/dashboard/show.html.erb`:
 
 Don't worry about the missing routes — we'll add them in the next parts.
 
+### Add flash messages and navigation
+
+The controllers use flash messages (`notice:`, `alert:`) on redirects, but the
+default application layout doesn't render them. Let's add a flash partial and a
+navigation bar.
+
+Create `app/views/layouts/_flash.html.erb`:
+
+```erb
+<% if notice %>
+  <div class="max-w-2xl mx-auto mt-4 px-4">
+    <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
+      <%= notice %>
+    </div>
+  </div>
+<% end %>
+
+<% if alert %>
+  <div class="max-w-2xl mx-auto mt-4 px-4">
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800">
+      <%= alert %>
+    </div>
+  </div>
+<% end %>
+```
+
+Create `app/views/shared/_navbar.html.erb`:
+
+```erb
+<nav class="bg-white border-b border-gray-200">
+  <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-6">
+      <%= link_to "Acme SaaS", root_path, class: "font-bold text-gray-900" %>
+      <% if authenticated? %>
+        <%= link_to "Dashboard", root_path, class: "text-sm text-gray-600 hover:text-gray-900" %>
+        <%= link_to "Pricing", pricing_path, class: "text-sm text-gray-600 hover:text-gray-900" %>
+        <%= link_to "Billing", billing_path, class: "text-sm text-gray-600 hover:text-gray-900" %>
+      <% else %>
+        <%= link_to "Pricing", pricing_path, class: "text-sm text-gray-600 hover:text-gray-900" %>
+      <% end %>
+    </div>
+
+    <div>
+      <% if authenticated? %>
+        <span class="text-sm text-gray-500 mr-3"><%= Current.user.email_address %></span>
+        <%= button_to "Log out", session_path, method: :delete,
+              class: "text-sm text-gray-600 hover:text-gray-900 cursor-pointer" %>
+      <% else %>
+        <%= link_to "Log in", new_session_path, class: "text-sm text-gray-600 hover:text-gray-900 mr-3" %>
+        <%= link_to "Sign up", new_registration_path,
+              class: "text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700" %>
+      <% end %>
+    </div>
+  </div>
+</nav>
+```
+
+Now include both in your application layout. Open
+`app/views/layouts/application.html.erb` and update the `<body>`:
+
+```erb
+<body>
+  <%= render "shared/navbar" %>
+  <%= render "layouts/flash" %>
+  <%= yield %>
+</body>
+```
+
+> **Login page styling:** The auth generator creates a basic
+> `sessions/new.html.erb` view. It works as-is, but if you want it to match the
+> Tailwind styling of the signup page, copy the structure from
+> `registrations/new.html.erb` and adjust the form fields.
+
 ---
 
 ## Part 2: One-off payments
 
 This is the simplest Mollie flow: create a payment, redirect the customer to
 Mollie's checkout page, and handle the return.
+
+> **Turbo Drive and external redirects:** Rails 8 includes Turbo Drive by
+> default, which intercepts form submissions via `fetch()`. Cross-origin
+> redirects (like Mollie's checkout URL) are silently blocked by the browser.
+> Add `data: { turbo: false }` to every form that redirects to Mollie. You'll
+> see this in the payment form and pricing page buttons below.
 
 ### Create the payments controller
 
@@ -279,6 +374,9 @@ class PaymentsController < ApplicationController
     )
 
     redirect_to payment.checkout_url, allow_other_host: true
+  rescue Mollie::RequestError, MolliePay::ConfigurationError => e
+    Rails.logger.error("Mollie API error: #{e.message}")
+    redirect_to new_payment_path, alert: "Payment service unavailable. Please try again."
   end
 
   def show
@@ -300,7 +398,7 @@ end
 <div class="max-w-md mx-auto mt-16">
   <h1 class="text-2xl font-bold mb-6">Make a payment</h1>
 
-  <%= form_with url: payments_path, method: :post, class: "space-y-4" do |form| %>
+  <%= form_with url: payments_path, method: :post, data: { turbo: false }, class: "space-y-4" do |form| %>
     <div>
       <%= form.label :amount, "Amount (in cents)",
             class: "block text-sm font-medium text-gray-700 mb-1" %>
@@ -405,6 +503,24 @@ end
 
 ## Part 3: Subscriptions
 
+> **Payment method prerequisites for mandates**
+>
+> Recurring billing requires a **mandate** — permission to charge the customer's
+> payment method in the future. Not all payment methods support mandate creation.
+> Activate at least one of these in your Mollie dashboard (Settings → Website
+> profiles → Payment methods):
+>
+> | Method | Mandate type |
+> |---|---|
+> | **Credit card** | Card mandate (supports zero-amount first payments) |
+> | **iDEAL** | SEPA Direct Debit mandate |
+> | **Bancontact** | SEPA Direct Debit mandate |
+> | **PayPal** | PayPal billing agreement |
+>
+> One-off payments (`mollie_pay_once`) work with any enabled method. First
+> payments (`mollie_pay_first`) require a mandate-capable method — if none are
+> active, the Mollie API returns `422 No suitable payment methods found`.
+
 Mollie recurring billing works in two steps:
 
 1. **First payment** — establishes a *mandate* (permission to charge the
@@ -429,6 +545,8 @@ bin/rails db:migrate
 ```ruby
 # app/controllers/pricing_controller.rb
 class PricingController < ApplicationController
+  allow_unauthenticated_access only: :show
+
   PLANS = {
     "monthly" => { amount: 2500,  interval: "1 month",   label: "Monthly",  price: "€25/month" },
     "yearly"  => { amount: 25000, interval: "12 months", label: "Yearly",   price: "€250/year (save €50)" }
@@ -436,7 +554,6 @@ class PricingController < ApplicationController
 
   def show
     @plans = PLANS
-    @current_subscription = Current.user.mollie_subscription
   end
 end
 ```
@@ -447,7 +564,7 @@ end
 <div class="max-w-2xl mx-auto mt-16">
   <h1 class="text-2xl font-bold mb-6">Choose your plan</h1>
 
-  <% if Current.user.mollie_subscribed? %>
+  <% if Current.user&.mollie_subscribed? %>
     <div class="bg-green-50 border border-green-200 rounded-lg p-6">
       <p class="text-green-800">
         You're currently subscribed to the <strong><%= Current.user.plan %></strong> plan.
@@ -465,25 +582,30 @@ end
           <p class="text-2xl font-bold text-gray-900 mt-2"><%= plan[:price] %></p>
 
           <div class="mt-auto pt-6">
-            <% if Current.user.mollie_mandated? %>
+            <% if Current.user&.mollie_mandated? %>
               <%= button_to "Subscribe",
                     subscriptions_path,
                     params: { plan: key },
                     method: :post,
                     class: "w-full bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 cursor-pointer" %>
-            <% else %>
+            <% elsif authenticated? %>
               <%= button_to "Get started",
                     subscription_setup_path,
                     params: { plan: key },
                     method: :post,
+                    form: { data: { turbo: false } },
                     class: "w-full bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700 cursor-pointer" %>
+            <% else %>
+              <%= link_to "Sign up to get started",
+                    new_registration_path,
+                    class: "block w-full text-center bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-700" %>
             <% end %>
           </div>
         </div>
       <% end %>
     </div>
 
-    <% unless Current.user.mollie_mandated? %>
+    <% if authenticated? && !Current.user.mollie_mandated? %>
       <p class="mt-6 text-sm text-gray-500">
         A small first payment (€0.01) establishes your payment method.
         Your subscription starts after this payment is confirmed.
@@ -519,6 +641,9 @@ class SubscriptionSetupsController < ApplicationController
     )
 
     redirect_to payment.checkout_url, allow_other_host: true
+  rescue Mollie::RequestError, MolliePay::ConfigurationError => e
+    Rails.logger.error("Mollie API error: #{e.message}")
+    redirect_to pricing_path, alert: "Payment service unavailable. Please try again."
   end
 end
 ```
@@ -555,6 +680,9 @@ class SubscriptionsController < ApplicationController
     )
 
     redirect_to billing_path, notice: "Subscription activated!"
+  rescue Mollie::RequestError, MolliePay::ConfigurationError => e
+    Rails.logger.error("Mollie API error: #{e.message}")
+    redirect_to pricing_path, alert: "Subscription could not be created. Please try again."
   end
 
   def destroy
@@ -579,7 +707,7 @@ Rails.application.routes.draw do
 
   resources :payments, only: [ :new, :create, :show ]
 
-  resource  :pricing, only: :show
+  resource  :pricing, only: :show, controller: "pricing"
   resource  :subscription_setup, only: :create
   resource  :subscription, only: [ :create, :destroy ]
   resource  :billing, only: :show
@@ -588,19 +716,17 @@ Rails.application.routes.draw do
 end
 ```
 
-### Handle the mandate webhook
+### Auto-subscribe after first payment
 
 When the first payment completes, Mollie fires a webhook. MolliePay processes it
-and calls the `on_mollie_first_payment_paid` hook on your model. This is where
-you can notify the user or auto-subscribe them.
+and calls `on_mollie_first_payment_paid` on your model. Without this hook, users
+would pay €0.01, get a mandate, and then need to manually navigate back to the
+pricing page and click "Subscribe" — a confusing experience.
 
-For this tutorial, we'll keep it simple — the user returns from Mollie, sees that
-their mandate is established, and clicks "Subscribe" on the pricing page.
-
-But if you want to auto-subscribe, add this to your `User` model:
+Add the auto-subscribe hook to your `User` model:
 
 ```ruby
-# app/models/user.rb (optional — auto-subscribe after first payment)
+# app/models/user.rb — add this method to the User class
 def on_mollie_first_payment_paid(payment)
   return unless plan.present?
 
@@ -616,8 +742,8 @@ end
 ```
 
 > **Important:** This hook runs in a background job (via Active Job), not in the
-> user's HTTP request. That's why we stored the plan on the User model — the hook
-> needs to know which plan was chosen.
+> user's HTTP request. That's why we stored the plan on the User model earlier —
+> the hook needs to know which plan was chosen.
 
 ---
 
@@ -875,7 +1001,7 @@ Rails.application.routes.draw do
 
   resources :payments, only: [ :new, :create, :show ]
 
-  resource  :pricing, only: :show
+  resource  :pricing, only: :show, controller: "pricing"
   resource  :subscription_setup, only: :create
   resource  :subscription, only: [ :create, :destroy ]
   resource  :billing, only: :show
@@ -887,31 +1013,6 @@ end
 ---
 
 ## Going further
-
-### Auto-subscribe after first payment
-
-Instead of making the user click "Subscribe" after their mandate is established,
-you can auto-subscribe in the webhook hook:
-
-```ruby
-# app/models/user.rb
-def on_mollie_first_payment_paid(payment)
-  return unless plan.present?
-
-  plan_details = PricingController::PLANS[plan]
-  return unless plan_details
-
-  mollie_subscribe(
-    amount:      plan_details[:amount],
-    interval:    plan_details[:interval],
-    description: "Acme SaaS #{plan_details[:label]} subscription"
-  )
-end
-```
-
-This runs in the background via Active Job when Mollie confirms the first
-payment. The user's plan was stored on their record when they clicked
-"Get started", so the hook knows which plan to activate.
 
 ### Plan upgrades and downgrades
 
