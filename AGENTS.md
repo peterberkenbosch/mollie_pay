@@ -94,6 +94,11 @@ ProcessWebhookJob#perform
 Mollie sends only an `id` in the webhook POST body. We always fetch the full
 object from the API. The API key is the verification — no signature needed.
 
+**Webhook deduplication:** uses a unique database index on
+`mollie_pay_webhook_events.mollie_id` + `rescue ActiveRecord::RecordNotUnique`.
+This is the correct pattern — never use `exists?`-then-create (TOCTOU race
+condition).
+
 **Idempotency:** hooks fire only on actual status transitions. Duplicate
 webhooks update the record but do not re-trigger hooks. Transition timestamps
 are set once, never overwritten.
@@ -144,17 +149,32 @@ class Organization < ApplicationRecord
 end
 ```
 
+The `included` block sets up these associations automatically:
+
+```ruby
+included do
+  has_one  :mollie_customer,      class_name: "MolliePay::Customer", as: :owner, dependent: :destroy
+  has_many :mollie_subscriptions, through: :mollie_customer, source: :subscriptions, class_name: "MolliePay::Subscription"
+  has_many :mollie_payments,      through: :mollie_customer, source: :payments,      class_name: "MolliePay::Payment"
+  has_many :mollie_mandates,      through: :mollie_customer, source: :mandates,      class_name: "MolliePay::Mandate"
+end
+```
+
+**Note:** `class_name` is required on cross-namespace `has_many :through`
+associations. Rails cannot resolve engine-namespaced models when the including
+model is in the host app namespace.
+
 Public methods:
-- `mollie_pay_once(amount:, description:, redirect_url: nil, method: nil)` → returns `Payment` with `checkout_url`
-- `mollie_pay_first(amount:, description:, redirect_url: nil, method: nil)` → returns `Payment` with `checkout_url`
-- `mollie_subscribe(amount:, interval:, description:)`
+- `mollie_pay_once(amount:, description:, redirect_url: nil, method: nil, metadata: nil)` → returns `Payment` with `checkout_url`
+- `mollie_pay_first(amount:, description:, redirect_url: nil, method: nil, metadata: nil)` → returns `Payment` with `checkout_url`
+- `mollie_subscribe(amount:, interval:, description:, start_date: nil)` → returns `Subscription` (returns existing if pending/active)
 - `mollie_cancel_subscription`
 - `mollie_refund(payment, amount: nil)`
 - `mollie_subscribed?`
 - `mollie_mandated?`
 - `mollie_subscription`
 - `mollie_mandate`
-- `mollie_payments`
+- `mollie_payments` → `has_many :through` association (supports `includes`, `joins`, etc.)
 
 Event hooks (override in host model, all no-ops by default):
 - `on_mollie_payment_paid`
