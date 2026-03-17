@@ -18,6 +18,17 @@ module MolliePay
     #     assert payment.checkout_url.present?
     #   end
     #
+    # With method and metadata:
+    #
+    #   stub_mollie_payment_create do
+    #     payment = @user.mollie_pay_first(
+    #       amount: 1000, description: "Setup",
+    #       redirect_url: billing_url,
+    #       method: "ideal",
+    #       metadata: { plan: "yearly" }
+    #     )
+    #   end
+    #
     def stub_mollie_payment_create(**overrides, &block)
       response = fake_mollie_payment(**overrides)
       Mollie::Payment.stub(:create, response, &block)
@@ -42,9 +53,23 @@ module MolliePay
 
     # Stub Mollie::Customer::Subscription.create.
     #
+    # Note: mollie_subscribe has an idempotency guard — it returns an existing
+    # pending/active subscription without hitting the Mollie API. Cancel or
+    # remove existing subscriptions in your test setup if you need to test
+    # subscription creation.
+    #
     #   stub_mollie_subscription_create do
     #     subscription = @user.mollie_subscribe(amount: 2500, interval: "1 month", description: "Monthly")
     #     assert_equal "active", subscription.status
+    #   end
+    #
+    # With start_date (for credit card first payments):
+    #
+    #   stub_mollie_subscription_create do
+    #     subscription = @user.mollie_subscribe(
+    #       amount: 2500, interval: "1 month",
+    #       description: "Monthly", start_date: Date.today + 1.month
+    #     )
     #   end
     #
     def stub_mollie_subscription_create(**overrides, &block)
