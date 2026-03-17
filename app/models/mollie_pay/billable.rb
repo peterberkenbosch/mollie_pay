@@ -56,7 +56,7 @@ module MolliePay
         metadata:    { mollie_pay_name: name }
       }
       params[:start_date] = start_date.to_s if start_date
-      ms = Mollie::Customer::Subscription.create(**params)
+      ms = Mollie::Customer::Subscription.create(**params, idempotency_key: SecureRandom.uuid)
       Subscription.create!(
         customer:  customer,
         mollie_id: ms.id,
@@ -85,8 +85,9 @@ module MolliePay
     def mollie_refund(payment, amount: nil)
       amount_cents = amount || payment.amount
       mr = Mollie::Refund.create(
-        paymentId: payment.mollie_id,
-        amount:    mollie_amount(amount_cents)
+        paymentId:      payment.mollie_id,
+        amount:         mollie_amount(amount_cents),
+        idempotency_key: SecureRandom.uuid
       )
       Refund.create!(
         payment:  payment,
@@ -146,14 +147,15 @@ module MolliePay
         raise MolliePay::ConfigurationError, "No redirect_url provided and default_redirect_path is not configured" if resolved_redirect_url.blank?
 
         mp = Mollie::Payment.create(
-          amount:       mollie_amount(amount),
-          description:  description,
-          redirectUrl:  resolved_redirect_url,
-          webhookUrl:   MolliePay.configuration.webhook_url,
-          customerId:   customer.mollie_id,
-          sequenceType: sequence_type,
-          method:       method,
-          metadata:     metadata
+          amount:          mollie_amount(amount),
+          description:     description,
+          redirectUrl:     resolved_redirect_url,
+          webhookUrl:      MolliePay.configuration.webhook_url,
+          customerId:      customer.mollie_id,
+          sequenceType:    sequence_type,
+          method:          method,
+          metadata:        metadata,
+          idempotency_key: SecureRandom.uuid
         )
 
         payment.update!(
@@ -168,8 +170,9 @@ module MolliePay
 
     def create_mollie_customer_on_mollie
       mc = Mollie::Customer.create(
-        name:  respond_to?(:name)  ? name  : nil,
-        email: respond_to?(:email) ? email : nil
+        name:            respond_to?(:name)  ? name  : nil,
+        email:           respond_to?(:email) ? email : nil,
+        idempotency_key: SecureRandom.uuid
       )
       create_mollie_customer!(mollie_id: mc.id)
     end
