@@ -512,6 +512,77 @@ module MolliePay
       end
     end
 
+    # === Idempotency keys ===
+
+    test "mollie_pay_once sends idempotency key to Mollie" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_idem_once")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_once(amount: 1000, description: "Test", redirect_url: "https://example.com/return")
+      end
+
+      assert received_args[:idempotency_key].present?, "idempotency_key should be present"
+      assert_match(/\A[0-9a-f-]{36}\z/, received_args[:idempotency_key])
+    end
+
+    test "mollie_pay_first sends idempotency key to Mollie" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_idem_first")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_first(amount: 1000, description: "Test", redirect_url: "https://example.com/return")
+      end
+
+      assert received_args[:idempotency_key].present?
+      assert_match(/\A[0-9a-f-]{36}\z/, received_args[:idempotency_key])
+    end
+
+    test "mollie_subscribe sends idempotency key to Mollie" do
+      mollie_pay_subscriptions(:acme_monthly).update!(status: "canceled", canceled_at: Time.current)
+
+      received_args = nil
+      response = fake_mollie_subscription(id: "sub_idem")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Customer::Subscription.stub(:create, fake_create) do
+        @org.mollie_subscribe(amount: 2500, interval: "1 month", description: "Test")
+      end
+
+      assert received_args[:idempotency_key].present?
+      assert_match(/\A[0-9a-f-]{36}\z/, received_args[:idempotency_key])
+    end
+
+    test "mollie_refund sends idempotency key to Mollie" do
+      received_args = nil
+      response = fake_mollie_refund(id: "re_idem")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Refund.stub(:create, fake_create) do
+        @org.mollie_refund(mollie_pay_payments(:acme_oneoff))
+      end
+
+      assert received_args[:idempotency_key].present?
+      assert_match(/\A[0-9a-f-]{36}\z/, received_args[:idempotency_key])
+    end
+
+    test "customer creation sends idempotency key to Mollie" do
+      org = Organization.create!(name: "Idem Org", email: "idem@org.nl")
+
+      received_args = nil
+      response = fake_mollie_customer(id: "cst_idem")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Customer.stub(:create, fake_create) do
+        org.mollie_customer!
+      end
+
+      assert received_args[:idempotency_key].present?
+      assert_match(/\A[0-9a-f-]{36}\z/, received_args[:idempotency_key])
+    end
+
     test "on_mollie_* hooks are defined and callable" do
       payment      = mollie_pay_payments(:acme_first)
       subscription = mollie_pay_subscriptions(:acme_monthly)
