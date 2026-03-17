@@ -96,6 +96,7 @@ module MolliePay
     end
 
     test "webmock_mollie_subscription_create exercises full pipeline" do
+      mollie_pay_subscriptions(:acme_monthly).update!(status: "canceled", canceled_at: Time.current)
       customer_id = @org.mollie_customer.mollie_id
 
       webmock_mollie_subscription_create(customer_id: customer_id) do
@@ -109,6 +110,7 @@ module MolliePay
     end
 
     test "webmock_mollie_subscription_create hits customer-nested endpoint" do
+      mollie_pay_subscriptions(:acme_monthly).update!(status: "canceled", canceled_at: Time.current)
       customer_id = @org.mollie_customer.mollie_id
       expected_url = "#{MOLLIE_API_BASE}/customers/#{customer_id}/subscriptions"
 

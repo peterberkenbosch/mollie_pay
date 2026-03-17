@@ -275,6 +275,47 @@ module MolliePay
       end
     end
 
+    test "mollie_subscribe returns existing active subscription" do
+      existing = mollie_pay_subscriptions(:acme_monthly)
+      assert_equal "active", existing.status
+
+      result = @org.mollie_subscribe(
+        amount: 5000,
+        interval: "1 year",
+        description: "Different plan"
+      )
+
+      assert_equal existing, result
+    end
+
+    test "mollie_subscribe returns existing pending subscription" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+      subscription.update!(status: "pending")
+
+      result = @org.mollie_subscribe(
+        amount: 2500,
+        interval: "1 month",
+        description: "Monthly plan"
+      )
+
+      assert_equal subscription, result
+    end
+
+    test "mollie_subscribe creates new when only canceled subscriptions exist" do
+      mollie_pay_subscriptions(:acme_monthly).update!(status: "canceled", canceled_at: Time.current)
+
+      stub_mollie_subscription_create(id: "sub_after_cancel") do
+        subscription = @org.mollie_subscribe(
+          amount: 2500,
+          interval: "1 month",
+          description: "Re-subscribe"
+        )
+
+        assert_equal "sub_after_cancel", subscription.mollie_id
+        assert_equal "active", subscription.status
+      end
+    end
+
     test "mollie_subscribe raises without mandate" do
       org = Organization.create!(name: "New Org", email: "new@org.nl")
       assert_raises(MolliePay::MandateRequired) do
@@ -283,6 +324,8 @@ module MolliePay
     end
 
     test "mollie_subscribe creates a subscription" do
+      mollie_pay_subscriptions(:acme_monthly).update!(status: "canceled", canceled_at: Time.current)
+
       stub_mollie_subscription_create(id: "sub_new123") do
         subscription = @org.mollie_subscribe(
           amount: 2500,
@@ -298,6 +341,8 @@ module MolliePay
     end
 
     test "mollie_subscribe calls Mollie::Customer::Subscription.create with customer_id" do
+      mollie_pay_subscriptions(:acme_monthly).update!(status: "canceled", canceled_at: Time.current)
+
       received_args = nil
       response = fake_mollie_subscription(id: "sub_api_class_test")
       fake_create = ->(**args) { received_args = args; response }
@@ -318,6 +363,8 @@ module MolliePay
     end
 
     test "mollie_subscribe does not call top-level Mollie::Subscription" do
+      mollie_pay_subscriptions(:acme_monthly).update!(status: "canceled", canceled_at: Time.current)
+
       called = false
       top_level_create = ->(**_args) { called = true; fake_mollie_subscription }
 
