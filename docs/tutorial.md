@@ -1214,26 +1214,23 @@ Additionally, `mollie_subscribe` itself has a built-in idempotency guard — it
 returns the existing subscription if one is pending or active. This provides
 defense-in-depth.
 
-### Webhook deduplication
+### Webhook event storage
 
-MolliePay v0.2 uses a unique database index on `mollie_pay_webhook_events.mollie_id`:
+Mollie sends multiple webhooks for the same resource ID as it transitions through
+statuses (e.g., `tr_abc123` for `authorized`, then again for `paid`). MolliePay
+stores every webhook delivery as a separate `WebhookEvent` row:
 
 ```ruby
-# Old pattern (v0.1) — TOCTOU race condition
-unless WebhookEvent.pending.exists?(mollie_id:)
-  WebhookEvent.create!(mollie_id:)
-end
-
-# New pattern (v0.2) — database enforces uniqueness
-WebhookEvent.create!(mollie_id:)
-rescue ActiveRecord::RecordNotUnique
-  head :ok  # duplicate, safe to ignore
+# Controller — stores every webhook delivery
+WebhookEvent.create!(mollie_id: mollie_id)
+ProcessWebhookJob.perform_later(event.id)
+head :ok
 ```
 
-Why this matters: Mollie retries webhooks, and concurrent deliveries can arrive
-simultaneously. The `exists?`-then-create pattern has a time-of-check to
-time-of-use (TOCTOU) race condition where two concurrent requests both pass the
-`exists?` check. The unique index + rescue pattern is atomic.
+Deduplication happens at the model layer, not the webhook layer. Each model's
+`record_from_mollie` uses `find_or_initialize_by(mollie_id:)` to upsert, and
+hooks fire only when `status != previous_status`. This means duplicate webhooks
+for the same status are harmless — the record is updated but no hooks re-fire.
 
 ### Error handling in controllers
 

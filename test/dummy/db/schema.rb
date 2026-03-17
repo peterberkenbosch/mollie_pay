@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_18_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_18_120000) do
   create_table "mollie_pay_customers", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "mollie_id", null: false
@@ -93,7 +93,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_100000) do
     t.datetime "processed_at"
     t.string "resource_type"
     t.datetime "updated_at", null: false
-    t.index ["mollie_id"], name: "index_mollie_pay_webhook_events_on_mollie_id", unique: true
     t.index ["processed_at"], name: "index_mollie_pay_webhook_events_on_processed_at"
   end
 

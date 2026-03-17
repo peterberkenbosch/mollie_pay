@@ -30,6 +30,19 @@ module MolliePay
       end
     end
 
+    test "discards when record not found" do
+      event = mollie_pay_webhook_events(:pending_event)
+      mock_event = Object.new
+      mock_event.define_singleton_method(:processed?) { false }
+      mock_event.define_singleton_method(:process!) { raise ActiveRecord::RecordNotFound }
+
+      WebhookEvent.stub(:find, mock_event) do
+        assert_no_enqueued_jobs only: ProcessWebhookJob do
+          ProcessWebhookJob.perform_now(event.id)
+        end
+      end
+    end
+
     test "skips already processed events" do
       event = mollie_pay_webhook_events(:payment_event)
       assert event.processed?

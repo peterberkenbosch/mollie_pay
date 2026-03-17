@@ -125,6 +125,51 @@ Currently, the gemspec has `allowed_push_host` set to prevent accidental pushes:
 spec.metadata["allowed_push_host"] = "TODO: Set to 'http://mygemserver.com'"
 ```
 
+## Fixing a Release Tag
+
+If you need to add a missed commit to a tagged release (e.g. forgot to include
+`Gemfile.lock`), follow these steps:
+
+### 1. Commit the fix
+
+```bash
+git add Gemfile.lock
+git commit -m "chore: Update Gemfile.lock for vX.Y.Z"
+git push origin master
+```
+
+### 2. Move the tag
+
+Delete the old tag locally, recreate it on the new commit:
+
+```bash
+git tag -d vX.Y.Z
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+```
+
+### 3. Update the remote tag
+
+GitHub rejects tag updates via `--force-with-lease`. Delete the remote tag first,
+then push the new one:
+
+```bash
+git push origin :refs/tags/vX.Y.Z
+git push origin vX.Y.Z
+```
+
+### 4. Re-publish the GitHub Release
+
+Replacing a tag puts the GitHub Release into **draft** mode. Delete the draft and
+recreate it:
+
+```bash
+gh release delete vX.Y.Z --yes
+gh release create vX.Y.Z --title "vX.Y.Z" --notes "..."
+```
+
+Verify the release is public at
+`https://github.com/peterberkenbosch/mollie_pay/releases/tag/vX.Y.Z`.
+
 ## Post-Release
 
 1. Verify the GitHub release is public

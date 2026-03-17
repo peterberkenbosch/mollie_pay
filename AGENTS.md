@@ -94,14 +94,15 @@ ProcessWebhookJob#perform
 Mollie sends only an `id` in the webhook POST body. We always fetch the full
 object from the API. The API key is the verification — no signature needed.
 
-**Webhook deduplication:** uses a unique database index on
-`mollie_pay_webhook_events.mollie_id` + `rescue ActiveRecord::RecordNotUnique`.
-This is the correct pattern — never use `exists?`-then-create (TOCTOU race
-condition).
+**Webhook event storage:** Mollie sends multiple webhooks for the same resource
+ID as it transitions through statuses (e.g., `tr_abc123` for `authorized`, then
+again for `paid`). Each webhook creates a new `WebhookEvent` row — no unique
+constraint on `mollie_id`. This ensures every status transition is processed.
 
-**Idempotency:** hooks fire only on actual status transitions. Duplicate
-webhooks update the record but do not re-trigger hooks. Transition timestamps
-are set once, never overwritten.
+**Idempotency:** deduplication lives at the model layer via
+`find_or_initialize_by(mollie_id:)` + `previous_status` check. Hooks fire only
+on actual status transitions. Transition timestamps are set once, never
+overwritten. Host app hooks should be implemented idempotently.
 
 ---
 

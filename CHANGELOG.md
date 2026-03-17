@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.0] - 2026-03-17
+
+### Fixed
+- Webhook events: removed unique index on `mollie_id` — Mollie sends multiple
+  webhooks for the same resource ID on status transitions (e.g., `authorized` →
+  `paid`). The unique index silently dropped subsequent webhooks, leaving payments
+  stuck in intermediate states
+- `Payment.record_from_mollie` and `Refund.record_from_mollie` now rescue
+  `RecordNotUnique` on concurrent INSERT race (matching existing Subscription pattern)
+- `ProcessWebhookJob` now discards `ActiveRecord::RecordNotFound` instead of retrying
+  5 times for locally unknown subscription/refund IDs
+
+### Migration Required
+- Run `rails mollie_pay:install:migrations && rails db:migrate` to remove the
+  unique index on `mollie_pay_webhook_events.mollie_id`
+
 ## [0.3.0] - 2026-03-17
 
 ### Added

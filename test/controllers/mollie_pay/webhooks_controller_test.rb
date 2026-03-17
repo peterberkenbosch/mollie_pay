@@ -16,26 +16,33 @@ module MolliePay
       end
     end
 
-    test "deduplicates already-received webhook events" do
-      post mollie_pay.webhooks_url, params: { id: "tr_dedup789" }
+    test "creates separate events for same mollie_id" do
+      post mollie_pay.webhooks_url, params: { id: "tr_multi789" }
       assert_response :ok
 
-      assert_no_difference "MolliePay::WebhookEvent.count" do
-        post mollie_pay.webhooks_url, params: { id: "tr_dedup789" }
+      assert_difference "MolliePay::WebhookEvent.count", 1 do
+        post mollie_pay.webhooks_url, params: { id: "tr_multi789" }
       end
 
       assert_response :ok
     end
 
-    test "deduplicates already-processed webhook events" do
+    test "creates event even if prior event for same mollie_id was processed" do
       event = MolliePay::WebhookEvent.create!(mollie_id: "tr_processed123")
       event.update!(processed_at: Time.current)
 
-      assert_no_difference "MolliePay::WebhookEvent.count" do
+      assert_difference "MolliePay::WebhookEvent.count", 1 do
         post mollie_pay.webhooks_url, params: { id: "tr_processed123" }
       end
 
       assert_response :ok
+    end
+
+    test "enqueues a job for each webhook event" do
+      assert_enqueued_jobs 2, only: MolliePay::ProcessWebhookJob do
+        post mollie_pay.webhooks_url, params: { id: "tr_jobs123" }
+        post mollie_pay.webhooks_url, params: { id: "tr_jobs123" }
+      end
     end
 
     test "returns 422 without id param" do

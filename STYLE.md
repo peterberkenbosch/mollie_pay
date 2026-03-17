@@ -271,23 +271,28 @@ mollie_customer&.subscriptions&.active&.first&.present?
 mollie_customer&.subscriptions&.active&.exists?
 ```
 
-### Webhook deduplication
+### Webhook event storage
 
-Use database unique constraints + `rescue ActiveRecord::RecordNotUnique` for
-webhook deduplication. Never use `exists?`-then-create — it has a TOCTOU race
-condition where concurrent requests both pass the `exists?` check.
+Mollie sends multiple webhooks for the same resource ID (status transitions like
+`authorized` → `paid`). Each webhook creates a new `WebhookEvent` row — no
+unique constraint on `mollie_id`. Deduplication lives at the model layer:
 
 ```ruby
-# Bad — TOCTOU race condition
-unless WebhookEvent.exists?(mollie_id: id)
-  WebhookEvent.create!(mollie_id: id)
-end
+# WebhookEvent — stores every delivery (no unique constraint on mollie_id)
+WebhookEvent.create!(mollie_id: mollie_id)
 
-# Good — database enforces uniqueness
-WebhookEvent.create!(mollie_id: id)
+# Model — idempotent upsert with status-transition guard
+payment = find_or_initialize_by(mollie_id: mp.id)
+previous_status = payment.status
+payment.update!(status: mp.status, ...)
+payment.notify_billable if payment.status != previous_status
 rescue ActiveRecord::RecordNotUnique
-  # duplicate, safe to ignore
+  find_by!(mollie_id: mp.id)
 ```
+
+The `RecordNotUnique` rescue on models (Payment, Subscription, Refund) handles
+the concurrent-INSERT race when two jobs for the same `mollie_id` both try to
+create a new record simultaneously.
 
 ### Time
 

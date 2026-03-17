@@ -258,8 +258,6 @@ POST /mollie_pay/webhooks              (from Mollie)
   → WebhookEvent.create!                (log the inbound ID)
   → ProcessWebhookJob.perform_later     (enqueue for async processing)
   → head :ok                            (respond immediately)
-  → rescue RecordNotUnique → head :ok   (deduplicate via unique index)
-
 ProcessWebhookJob:
   → skip if event already processed
   → event.process!
@@ -270,11 +268,13 @@ ProcessWebhookJob:
 ```
 
 MolliePay responds immediately with `200 OK`, then processes asynchronously via
-Active Job. Duplicate webhooks are deduplicated using a unique database index on
-`mollie_pay_webhook_events.mollie_id` — if a second webhook arrives for the same
-Mollie ID, the `INSERT` fails with `RecordNotUnique` and is silently ignored. On
-failure, the job retries with polynomial backoff (up to 5 attempts). Resources not
-found on Mollie (404) are discarded, not retried.
+Active Job. Mollie sends multiple webhooks for the same resource ID as it
+transitions through statuses (e.g., `tr_abc123` for `authorized`, then `paid`).
+Each webhook creates a separate `WebhookEvent` row and enqueues its own job.
+Deduplication happens at the model layer via `find_or_initialize_by` + status
+transition checks. On failure, the job retries with polynomial backoff (up to 5
+attempts). Resources not found on Mollie (404) or locally (unknown subscription/
+refund IDs) are discarded, not retried.
 
 ### Verification
 
@@ -287,9 +287,10 @@ The API key is the verification — only your key can fetch your objects.
 
 Hooks fire **only on actual status transitions**. If Mollie sends the same
 webhook multiple times (which it does routinely), the local record is updated
-but hooks are not re-triggered. This means your `on_mollie_*` callbacks can
-safely perform side effects (send emails, provision access, update billing
-state) without worrying about duplicates.
+but hooks are not re-triggered. As a best practice, implement your `on_mollie_*`
+callbacks **idempotently** — they are safe for side effects (send emails,
+provision access, update billing state) but should handle the rare case of
+being called more than once for the same transition.
 
 Transition timestamps (`paid_at`, `canceled_at`, `failed_at`, `expired_at`,
 `refunded_at`, `mandated_at`) are set once when the transition is first
@@ -675,6 +676,26 @@ rails mollie_pay:install:migrations && rails db:migrate
   Existing calls without `name:` work identically.
 - A partial unique index prevents duplicate active/pending subscriptions per
   name per customer — the idempotency guard is now database-backed.
+
+## Upgrading to v0.4
+
+Run the new migration to remove the webhook events unique index:
+
+```sh
+rails mollie_pay:install:migrations && rails db:migrate
+```
+
+**What changed:**
+- Webhook events no longer have a unique index on `mollie_id`. Mollie sends
+  multiple webhooks for the same resource ID as it transitions through statuses
+  (e.g., `authorized` → `paid`). Each webhook now creates a separate event row
+  to ensure all status transitions are processed.
+- Deduplication moved from the database layer to the model layer — hooks still
+  fire only on actual status transitions. No host app changes needed.
+- `ProcessWebhookJob` now discards locally unknown subscription/refund IDs
+  instead of retrying them.
+- Host app `on_mollie_*` callbacks should be implemented idempotently as a best
+  practice.
 
 ## License
 

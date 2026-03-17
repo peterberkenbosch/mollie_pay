@@ -9,8 +9,6 @@ module MolliePay
       ProcessWebhookJob.perform_later(event.id)
 
       head :ok
-    rescue ActiveRecord::RecordNotUnique
-      head :ok
     rescue ActionController::ParameterMissing, ActiveRecord::RecordInvalid
       head :unprocessable_entity
     end
