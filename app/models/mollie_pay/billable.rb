@@ -40,17 +40,19 @@ module MolliePay
       create_mollie_payment(amount:, description:, redirect_url:, method:, sequence_type: "first")
     end
 
-    def mollie_subscribe(amount:, interval:, description:)
+    def mollie_subscribe(amount:, interval:, description:, start_date: nil)
       raise MolliePay::MandateRequired, "No valid mandate on file" unless mollie_mandated?
 
       customer = mollie_customer!
-      ms = Mollie::Customer::Subscription.create(
+      params = {
         customer_id: customer.mollie_id,
         amount:      mollie_amount(amount),
         interval:    interval,
         description: description,
         webhook_url: MolliePay.configuration.webhook_url
-      )
+      }
+      params[:start_date] = start_date.to_s if start_date
+      ms = Mollie::Customer::Subscription.create(**params)
       Subscription.create!(
         customer:  customer,
         mollie_id: ms.id,
