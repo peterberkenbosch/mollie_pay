@@ -163,6 +163,57 @@ module MolliePay
       assert_nil received_args[:method]
     end
 
+    test "mollie_pay_once passes metadata to Mollie API when provided" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_meta_once")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_once(
+          amount: 3000,
+          description: "With metadata",
+          redirect_url: "https://example.com/return",
+          metadata: { plan: "yearly", source: "checkout" }
+        )
+      end
+
+      assert_equal({ plan: "yearly", source: "checkout" }, received_args[:metadata])
+    end
+
+    test "mollie_pay_first passes metadata to Mollie API when provided" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_meta_first")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_first(
+          amount: 1000,
+          description: "First with metadata",
+          redirect_url: "https://example.com/return",
+          metadata: { plan: "monthly" }
+        )
+      end
+
+      assert_equal({ plan: "monthly" }, received_args[:metadata])
+      assert_equal "first", received_args[:sequenceType]
+    end
+
+    test "mollie_pay_once passes nil metadata when not provided" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_no_meta")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_once(
+          amount: 3000,
+          description: "No metadata",
+          redirect_url: "https://example.com/return"
+        )
+      end
+
+      assert_nil received_args[:metadata]
+    end
+
     test "mollie_pay_once raises when no redirect_url and no default configured" do
       MolliePay.configuration.default_redirect_path = nil
 
