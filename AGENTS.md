@@ -53,7 +53,6 @@ app/
     payment.rb
     refund.rb
     subscription.rb
-    webhook_event.rb            # owns process! — the webhook entry point
 lib/
   mollie_pay/
     configuration.rb
@@ -74,34 +73,39 @@ objects or interactors.
 POST /mollie_pay/webhooks
   → WebhooksController#create
   → validates mollie_id format: (tr|sub|re)_[a-zA-Z0-9]+
-  → WebhookEvent.create!(mollie_id: params.expect(:id))
-  → ProcessWebhookJob.perform_later(event.id)
+  → ProcessWebhookJob.perform_later(mollie_id)
   → head :ok
 
-ProcessWebhookJob#perform
-  → skips if event already processed
-  → event.process!
-  → clears failed state if retrying
-  → fetches object from Mollie API by ID prefix (tr_, sub_, re_)
-  → routes to Payment.record_from_mollie / Subscription.record_from_mollie / Refund.record_from_mollie
-  → each class method upserts the local record
+ProcessWebhookJob#perform(mollie_id)
+  → routes by ID prefix (tr_ → Payment, sub_ → Subscription, re_ → Refund)
+  → fetches current state from Mollie API
+  → upserts local record via Model.record_from_mollie
   → fires on_mollie_* hook ONLY if status actually changed
-  → marks event processed
-  → on failure: marks event failed (truncated error), re-raises for ActiveJob retry
-  → discards Mollie::ResourceNotFoundError (404) — no retry
+  → on failure: ActiveJob retries with polynomial backoff (5 attempts)
+  → discards Mollie::ResourceNotFoundError (404) and RecordNotFound — no retry
 ```
 
-Mollie sends only an `id` in the webhook POST body. We always fetch the full
-object from the API. The API key is the verification — no signature needed.
+**No `WebhookEvent` model — by design.** There is no intermediate event table.
+The controller validates and enqueues. The job does the work. Domain models own
+their state. ActiveJob owns retries. This follows the 37signals principle: don't
+create mutable infrastructure records when the real state already lives on domain
+models (Payment, Subscription, Refund) and the retry/failure tracking already
+lives in ActiveJob. Mollie sends only an `id` — we always fetch the full object
+from the API. The API key is the verification — no signature needed.
 
-**Webhook deduplication:** uses a unique database index on
-`mollie_pay_webhook_events.mollie_id` + `rescue ActiveRecord::RecordNotUnique`.
-This is the correct pattern — never use `exists?`-then-create (TOCTOU race
-condition).
+**Do not re-introduce a webhook event model.** If you need an audit trail of
+Mollie webhooks, check Mollie's dashboard. If you need to know why a payment is
+in a certain state, check the domain model's status and transition timestamps.
 
-**Idempotency:** hooks fire only on actual status transitions. Duplicate
-webhooks update the record but do not re-trigger hooks. Transition timestamps
-are set once, never overwritten.
+**Idempotency:** `record_from_mollie` uses `find_or_initialize_by(mollie_id:)` +
+`previous_status` check. Hooks fire only on actual status transitions. Transition
+timestamps are set once, never overwritten. Host app hooks should be idempotent.
+
+**Concurrent INSERT race:** `Payment.record_from_mollie` and
+`Refund.record_from_mollie` rescue `ActiveRecord::RecordNotUnique` and fall back
+to `find_by!`, matching the existing `Subscription.record_from_mollie` pattern.
+This handles the case where two concurrent jobs for the same `mollie_id` both
+try to create a new record simultaneously.
 
 ---
 

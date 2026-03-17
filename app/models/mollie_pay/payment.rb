@@ -45,6 +45,8 @@ module MolliePay
 
       payment.notify_billable(mp) if payment.status != previous_status
       payment
+    rescue ActiveRecord::RecordNotUnique
+      find_by!(mollie_id: mp.id)
     end
 
     def notify_billable(mollie_payment = nil)

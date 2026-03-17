@@ -29,6 +29,8 @@ module MolliePay
         payment.customer.owner.on_mollie_refund_processed(refund)
       end
       refund
+    rescue ActiveRecord::RecordNotUnique
+      find_by!(mollie_id: mr.id)
     end
 
     def mollie_record

@@ -271,22 +271,25 @@ mollie_customer&.subscriptions&.active&.first&.present?
 mollie_customer&.subscriptions&.active&.exists?
 ```
 
-### Webhook deduplication
+### Webhook processing
 
-Use database unique constraints + `rescue ActiveRecord::RecordNotUnique` for
-webhook deduplication. Never use `exists?`-then-create — it has a TOCTOU race
-condition where concurrent requests both pass the `exists?` check.
+No event model. The controller validates the Mollie ID format and enqueues a job.
+The job fetches from the Mollie API and delegates to domain models. Idempotency
+lives at the model layer via `find_or_initialize_by` + `previous_status` check.
 
 ```ruby
-# Bad — TOCTOU race condition
-unless WebhookEvent.exists?(mollie_id: id)
-  WebhookEvent.create!(mollie_id: id)
-end
+# Controller — validate and enqueue, nothing else
+ProcessWebhookJob.perform_later(mollie_id)
+head :ok
 
-# Good — database enforces uniqueness
-WebhookEvent.create!(mollie_id: id)
-rescue ActiveRecord::RecordNotUnique
-  # duplicate, safe to ignore
+# Job — fetch and delegate
+Payment.record_from_mollie(Mollie::Payment.get(mollie_id))
+
+# Model — idempotent upsert
+payment = find_or_initialize_by(mollie_id: mp.id)
+previous_status = payment.status
+payment.update!(status: mp.status, ...)
+payment.notify_billable if payment.status != previous_status
 ```
 
 ### Time

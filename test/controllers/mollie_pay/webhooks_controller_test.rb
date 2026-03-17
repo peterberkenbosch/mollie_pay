@@ -2,44 +2,32 @@ require "test_helper"
 
 module MolliePay
   class WebhooksControllerTest < ActionDispatch::IntegrationTest
-    test "creates webhook event and responds 200" do
-      assert_difference "MolliePay::WebhookEvent.count", 1 do
+    test "enqueues processing job and responds 200" do
+      assert_enqueued_with(job: MolliePay::ProcessWebhookJob, args: [ "tr_new456" ]) do
         post mollie_pay.webhooks_url, params: { id: "tr_new456" }
       end
 
       assert_response :ok
     end
 
-    test "enqueues processing job" do
-      assert_enqueued_with(job: MolliePay::ProcessWebhookJob) do
-        post mollie_pay.webhooks_url, params: { id: "tr_new456" }
-      end
-    end
-
-    test "deduplicates already-received webhook events" do
-      post mollie_pay.webhooks_url, params: { id: "tr_dedup789" }
-      assert_response :ok
-
-      assert_no_difference "MolliePay::WebhookEvent.count" do
-        post mollie_pay.webhooks_url, params: { id: "tr_dedup789" }
+    test "accepts subscription webhook" do
+      assert_enqueued_with(job: MolliePay::ProcessWebhookJob, args: [ "sub_abc123" ]) do
+        post mollie_pay.webhooks_url, params: { id: "sub_abc123" }
       end
 
       assert_response :ok
     end
 
-    test "deduplicates already-processed webhook events" do
-      event = MolliePay::WebhookEvent.create!(mollie_id: "tr_processed123")
-      event.update!(processed_at: Time.current)
-
-      assert_no_difference "MolliePay::WebhookEvent.count" do
-        post mollie_pay.webhooks_url, params: { id: "tr_processed123" }
+    test "accepts refund webhook" do
+      assert_enqueued_with(job: MolliePay::ProcessWebhookJob, args: [ "re_abc123" ]) do
+        post mollie_pay.webhooks_url, params: { id: "re_abc123" }
       end
 
       assert_response :ok
     end
 
     test "returns 422 without id param" do
-      assert_no_difference "MolliePay::WebhookEvent.count" do
+      assert_no_enqueued_jobs only: MolliePay::ProcessWebhookJob do
         post mollie_pay.webhooks_url, params: {}
       end
 
@@ -47,7 +35,7 @@ module MolliePay
     end
 
     test "returns 422 with invalid mollie_id format" do
-      assert_no_difference "MolliePay::WebhookEvent.count" do
+      assert_no_enqueued_jobs only: MolliePay::ProcessWebhookJob do
         post mollie_pay.webhooks_url, params: { id: "invalid_format" }
       end
 
