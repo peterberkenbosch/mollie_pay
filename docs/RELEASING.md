@@ -135,6 +135,7 @@ spec.metadata["allowed_push_host"] = "TODO: Set to 'http://mygemserver.com'"
 
 | Version | Date | Key Changes |
 |---------|------|-------------|
+| v0.4.0 | 2026-03-17 | Drop WebhookEvent, 37signals-style webhook simplification |
 | v0.3.0 | 2026-03-17 | Named subscriptions support |
 | v0.2.0 | 2026-03-17 | Through associations, idempotency guards, metadata |
 | v0.1.0 | 2026-03-01 | Initial release |
