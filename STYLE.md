@@ -271,6 +271,24 @@ mollie_customer&.subscriptions&.active&.first&.present?
 mollie_customer&.subscriptions&.active&.exists?
 ```
 
+### Webhook deduplication
+
+Use database unique constraints + `rescue ActiveRecord::RecordNotUnique` for
+webhook deduplication. Never use `exists?`-then-create — it has a TOCTOU race
+condition where concurrent requests both pass the `exists?` check.
+
+```ruby
+# Bad — TOCTOU race condition
+unless WebhookEvent.exists?(mollie_id: id)
+  WebhookEvent.create!(mollie_id: id)
+end
+
+# Good — database enforces uniqueness
+WebhookEvent.create!(mollie_id: id)
+rescue ActiveRecord::RecordNotUnique
+  # duplicate, safe to ignore
+```
+
 ### Time
 
 - `Time.current` — always, never `Time.now`
