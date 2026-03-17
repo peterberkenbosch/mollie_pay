@@ -97,7 +97,8 @@ payment = current_organization.mollie_pay_first(
   amount:       1000, # 10.00 in cents
   description:  "Activation fee",
   redirect_url: payment_url(payment), # optional if default_redirect_path is configured
-  method:       "ideal" # optional — omit to let Mollie show all enabled methods
+  method:       "ideal",    # optional — omit to let Mollie show all enabled methods
+  metadata:     { plan: "monthly" } # optional — forwarded to Mollie API
 )
 
 redirect_to payment.checkout_url
@@ -120,11 +121,14 @@ ID interpolated). If you configured `default_redirect_path`, you can omit
 current_organization.mollie_subscribe(
   amount:      2500,        # 25.00 in cents
   interval:    "1 month",   # Mollie interval format
-  description: "Monthly plan"
+  description: "Monthly plan",
+  start_date:  Date.today + 1.month # optional — defer first charge
 )
 ```
 
-Raises `MolliePay::MandateRequired` if no valid mandate is on file.
+Raises `MolliePay::MandateRequired` if no valid mandate is on file. If a pending
+or active subscription already exists, returns the existing subscription without
+creating a duplicate (idempotency guard).
 
 **3. One-off payment — no mandate required**
 
@@ -164,7 +168,26 @@ org.mollie_subscribed?      # => true/false
 org.mollie_mandated?        # => true/false
 org.mollie_subscription     # => MolliePay::Subscription or nil
 org.mollie_mandate          # => MolliePay::Mandate or nil
-org.mollie_payments         # => ActiveRecord::Relation
+```
+
+### Through associations
+
+`mollie_payments`, `mollie_subscriptions`, and `mollie_mandates` are real
+`has_many :through` associations — they support full ActiveRecord chaining:
+
+```ruby
+org.mollie_subscriptions                 # all subscriptions
+org.mollie_subscriptions.active          # active only
+org.mollie_payments                      # all payments
+org.mollie_payments.paid                 # paid only
+org.mollie_payments.recurring            # recurring payments
+org.mollie_mandates                      # all mandates
+org.mollie_mandates.valid_status         # valid only
+
+# Eager loading for admin views (avoids N+1)
+User.includes(mollie_customer: :subscriptions).find_each do |user|
+  user.mollie_subscriptions.active       # no extra query
+end
 ```
 
 ### Fetching live Mollie data
@@ -210,10 +233,10 @@ POST https://yourapp.com/mollie_pay/webhooks
 ```
 POST /mollie_pay/webhooks              (from Mollie)
   → validate mollie_id format           (reject junk IDs with 422)
-  → skip if pending event already exists (deduplicate retries)
   → WebhookEvent.create!                (log the inbound ID)
   → ProcessWebhookJob.perform_later     (enqueue for async processing)
   → head :ok                            (respond immediately)
+  → rescue RecordNotUnique → head :ok   (deduplicate via unique index)
 
 ProcessWebhookJob:
   → skip if event already processed
@@ -225,10 +248,11 @@ ProcessWebhookJob:
 ```
 
 MolliePay responds immediately with `200 OK`, then processes asynchronously via
-Active Job. Duplicate webhooks from Mollie are deduplicated at the controller
-level — if a pending event for the same ID already exists, no new job is
-enqueued. On failure, the job retries with polynomial backoff (up to 5
-attempts). Resources not found on Mollie (404) are discarded, not retried.
+Active Job. Duplicate webhooks are deduplicated using a unique database index on
+`mollie_pay_webhook_events.mollie_id` — if a second webhook arrives for the same
+Mollie ID, the `INSERT` fails with `RecordNotUnique` and is silently ignored. On
+failure, the job retries with polynomial backoff (up to 5 attempts). Resources not
+found on Mollie (404) are discarded, not retried.
 
 ### Verification
 
@@ -589,11 +613,29 @@ config.active_job.queue_adapter = :solid_queue # or :sidekiq, :good_job, etc.
 
 Webhook jobs are enqueued on the `:default` queue. Processing includes:
 
-- **Deduplication:** duplicate webhooks are skipped at the controller level
+- **Deduplication:** duplicate webhooks are rejected via unique database index
 - **Retry policy:** polynomial backoff, up to 5 attempts on Mollie API and database errors
 - **Discard policy:** Mollie 404s (resource not found) are discarded immediately
 - **Idempotency guard:** already-processed events are skipped on retry
 - **Programming errors** (`NoMethodError`, etc.) bubble up immediately without marking the event as failed
+
+## Upgrading to v0.2
+
+Run the new migration for the webhook events unique index:
+
+```sh
+rails mollie_pay:install:migrations && rails db:migrate
+```
+
+**What changed:**
+- `mollie_payments` is now a real `has_many :through` association (previously a
+  manual method). Same interface, no host app changes needed.
+- `mollie_subscribe` accepts optional `start_date:` and has an idempotency guard.
+  Existing calls are unchanged.
+- `mollie_pay_once` and `mollie_pay_first` accept optional `method:` and `metadata:`
+  parameters. Existing calls are unchanged.
+- Webhook deduplication now uses a database unique index instead of an
+  application-level check. The new migration adds this index.
 
 ## License
 
