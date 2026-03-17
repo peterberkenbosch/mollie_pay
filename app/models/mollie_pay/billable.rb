@@ -83,6 +83,7 @@ module MolliePay
     end
 
     def mollie_refund(payment, amount: nil)
+      verify_payment_ownership!(payment)
       amount_cents = amount || payment.amount
       mr = Mollie::Refund.create(
         paymentId: payment.mollie_id,
@@ -118,6 +119,7 @@ module MolliePay
     # === Hooks — override these in your model ===
 
     def on_mollie_payment_paid(payment)             ; end
+    def on_mollie_payment_authorized(payment)       ; end
     def on_mollie_payment_failed(payment)           ; end
     def on_mollie_payment_canceled(payment)         ; end
     def on_mollie_payment_expired(payment)          ; end
@@ -130,6 +132,10 @@ module MolliePay
     def on_mollie_refund_processed(refund)          ; end
 
     private
+
+    def verify_payment_ownership!(payment)
+      raise MolliePay::Error, "Payment does not belong to this customer" unless mollie_payments.exists?(id: payment.id)
+    end
 
     def create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type:)
       customer = mollie_customer!

@@ -522,6 +522,7 @@ module MolliePay
         @org.on_mollie_payment_paid(payment)
         @org.on_mollie_payment_failed(payment)
         @org.on_mollie_payment_canceled(payment)
+        @org.on_mollie_payment_authorized(payment)
         @org.on_mollie_payment_expired(payment)
         @org.on_mollie_first_payment_paid(payment)
         @org.on_mollie_subscription_charged(payment)
@@ -530,6 +531,24 @@ module MolliePay
         @org.on_mollie_subscription_completed(subscription)
         @org.on_mollie_mandate_created(mandate)
         @org.on_mollie_refund_processed(refund)
+      end
+    end
+
+    test "mollie_refund raises error for payment not belonging to this customer" do
+      other_org = Organization.create!(name: "Other Org", email: "other@org.nl")
+      other_customer = MolliePay::Customer.create!(mollie_id: "cst_other", owner: other_org)
+      other_payment = MolliePay::Payment.create!(
+        customer: other_customer,
+        mollie_id: "tr_other",
+        status: "paid",
+        amount: 5000,
+        currency: "EUR",
+        sequence_type: "oneoff",
+        paid_at: Time.current
+      )
+
+      assert_raises(MolliePay::Error) do
+        @org.mollie_refund(other_payment)
       end
     end
   end

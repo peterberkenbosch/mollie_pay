@@ -1,6 +1,6 @@
 module MolliePay
   class WebhooksController < ApplicationController
-    MOLLIE_ID_FORMAT = /\A(tr|sub|re)_[a-zA-Z0-9]+\z/
+    MOLLIE_ID_FORMAT = /\A(tr|sub|re|stl)_[a-zA-Z0-9]{1,64}\z/
 
     skip_forgery_protection
 

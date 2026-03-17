@@ -72,7 +72,7 @@ objects or interactors.
 ```
 POST /mollie_pay/webhooks
   → WebhooksController#create
-  → validates mollie_id format: (tr|sub|re)_[a-zA-Z0-9]+
+  → validates mollie_id format: (tr|sub|re|stl)_[a-zA-Z0-9]{1,64}
   → ProcessWebhookJob.perform_later(mollie_id)
   → head :ok
 
