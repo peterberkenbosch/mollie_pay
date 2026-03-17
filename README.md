@@ -127,8 +127,30 @@ current_organization.mollie_subscribe(
 ```
 
 Raises `MolliePay::MandateRequired` if no valid mandate is on file. If a pending
-or active subscription already exists, returns the existing subscription without
-creating a duplicate (idempotency guard).
+or active subscription with the same name already exists, returns the existing
+subscription without creating a duplicate (idempotency guard).
+
+**Named subscriptions** — multiple concurrent subscriptions per customer:
+
+```ruby
+# Base plan
+current_organization.mollie_subscribe(
+  amount: 2500, interval: "1 month", description: "Base plan"
+)
+
+# Add-on (different name)
+current_organization.mollie_subscribe(
+  amount: 1000, interval: "1 month", description: "Analytics",
+  name: "analytics_addon"
+)
+
+# Query and cancel by name
+current_organization.mollie_subscribed?(name: "analytics_addon")  # => true
+current_organization.mollie_cancel_subscription(name: "analytics_addon")
+```
+
+All subscription methods default to `name: "default"` when no name is given,
+so existing code works unchanged.
 
 **3. One-off payment — no mandate required**
 
@@ -636,6 +658,23 @@ rails mollie_pay:install:migrations && rails db:migrate
   parameters. Existing calls are unchanged.
 - Webhook deduplication now uses a database unique index instead of an
   application-level check. The new migration adds this index.
+
+## Upgrading to v0.3
+
+Run the new migration for the subscription name column:
+
+```sh
+rails mollie_pay:install:migrations && rails db:migrate
+```
+
+**What changed:**
+- Subscriptions now have a `name` column (default: `"default"`). Existing
+  subscriptions are unchanged — they get `name = "default"` automatically.
+- All subscription methods (`mollie_subscribe`, `mollie_cancel_subscription`,
+  `mollie_subscribed?`, `mollie_subscription`) accept optional `name:` keyword.
+  Existing calls without `name:` work identically.
+- A partial unique index prevents duplicate active/pending subscriptions per
+  name per customer — the idempotency guard is now database-backed.
 
 ## License
 

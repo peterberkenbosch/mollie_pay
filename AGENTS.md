@@ -167,14 +167,19 @@ model is in the host app namespace.
 Public methods:
 - `mollie_pay_once(amount:, description:, redirect_url: nil, method: nil, metadata: nil)` → returns `Payment` with `checkout_url`
 - `mollie_pay_first(amount:, description:, redirect_url: nil, method: nil, metadata: nil)` → returns `Payment` with `checkout_url`
-- `mollie_subscribe(amount:, interval:, description:, start_date: nil)` → returns `Subscription` (returns existing if pending/active)
-- `mollie_cancel_subscription`
+- `mollie_subscribe(amount:, interval:, description:, start_date: nil, name: "default")` → returns `Subscription` (returns existing if pending/active for that name)
+- `mollie_cancel_subscription(name: "default")`
 - `mollie_refund(payment, amount: nil)`
-- `mollie_subscribed?`
+- `mollie_subscribed?(name: "default")`
 - `mollie_mandated?`
-- `mollie_subscription`
+- `mollie_subscription(name: "default")`
 - `mollie_mandate`
 - `mollie_payments` → `has_many :through` association (supports `includes`, `joins`, etc.)
+
+**Named subscriptions:** All subscription methods accept `name:` with a default
+of `"default"`. This allows multiple concurrent subscriptions per customer
+(e.g., `"default"` + `"analytics_addon"`). A partial unique index prevents
+duplicate active/pending subscriptions per name per customer.
 
 Event hooks (override in host model, all no-ops by default):
 - `on_mollie_payment_paid`

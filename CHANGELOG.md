@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.0] - 2026-03-17
+
+### Added
+- Named subscriptions: `name` column on subscriptions (default: `"default"`)
+  enables multiple concurrent subscriptions per customer
+- `name:` keyword argument on `mollie_subscribe`, `mollie_cancel_subscription`,
+  `mollie_subscribed?`, and `mollie_subscription` (default: `"default"`)
+- `Subscription::ACTIVE_STATUSES` constant for pending/active status checks
+- `named` scope on Subscription model
+- Partial unique index on `[customer_id, name]` WHERE status IN
+  ('pending', 'active') — database-level idempotency guarantee
+- Race condition handling: orphaned Mollie subscriptions are canceled when
+  `RecordNotUnique` is raised during concurrent creates
+- Subscription name stored in Mollie metadata for webhook recovery
+
+### Migration Required
+- Run `rails mollie_pay:install:migrations && rails db:migrate` for the
+  `name` column and partial unique index on subscriptions
+
 ## [0.2.0] - 2026-03-17
 
 ### Added
