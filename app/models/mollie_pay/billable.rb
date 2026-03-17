@@ -32,12 +32,12 @@ module MolliePay
 
     # === Payments ===
 
-    def mollie_pay_once(amount:, description:, redirect_url: nil, method: nil)
-      create_mollie_payment(amount:, description:, redirect_url:, method:, sequence_type: "oneoff")
+    def mollie_pay_once(amount:, description:, redirect_url: nil, method: nil, metadata: nil)
+      create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type: "oneoff")
     end
 
-    def mollie_pay_first(amount:, description:, redirect_url: nil, method: nil)
-      create_mollie_payment(amount:, description:, redirect_url:, method:, sequence_type: "first")
+    def mollie_pay_first(amount:, description:, redirect_url: nil, method: nil, metadata: nil)
+      create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type: "first")
     end
 
     def mollie_subscribe(amount:, interval:, description:, start_date: nil)
@@ -123,7 +123,7 @@ module MolliePay
 
     private
 
-    def create_mollie_payment(amount:, description:, redirect_url:, method:, sequence_type:)
+    def create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type:)
       customer = mollie_customer!
 
       Payment.transaction do
@@ -144,7 +144,8 @@ module MolliePay
           webhookUrl:   MolliePay.configuration.webhook_url,
           customerId:   customer.mollie_id,
           sequenceType: sequence_type,
-          method:       method
+          method:       method,
+          metadata:     metadata
         )
 
         payment.update!(
