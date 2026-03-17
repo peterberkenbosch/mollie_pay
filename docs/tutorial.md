@@ -728,6 +728,7 @@ Add the auto-subscribe hook to your `User` model:
 ```ruby
 # app/models/user.rb — add this method to the User class
 def on_mollie_first_payment_paid(payment)
+  return if mollie_subscribed?   # idempotency guard — prevents duplicate subscriptions on webhook retry
   return unless plan.present?
 
   plan_details = PricingController::PLANS[plan]
@@ -758,7 +759,7 @@ class BillingsController < ApplicationController
   def show
     @subscription = Current.user.mollie_subscription
     @mandate      = Current.user.mollie_mandate
-    @payments     = Current.user.mollie_payments.order(created_at: :desc).limit(10)
+    @payments     = Current.user.mollie_payments.order(created_at: :desc).limit(10) # real has_many :through association
   end
 end
 ```
@@ -1012,39 +1013,267 @@ end
 
 ---
 
-## Going further
+## Part 6: Payment method selection
 
-### Plan upgrades and downgrades
+Different payment methods create different mandate types and have different
+first-payment flows. Understanding this is important for a good user experience.
 
-To switch plans, cancel the current subscription and create a new one:
+### Payment method comparison
 
-```ruby
-Current.user.mollie_cancel_subscription
-Current.user.mollie_subscribe(
-  amount:      new_plan[:amount],
-  interval:    new_plan[:interval],
-  description: "Acme SaaS #{new_plan[:label]} subscription"
-)
+| Payment Method | Mollie `method` | First Payment | Mandate Type | Recurring Via | Subscription Start |
+|---|---|---|---|---|---|
+| iDEAL | `"ideal"` | €0.01 | SEPA Direct Debit | SEPA DD | Immediate |
+| Credit Card | `"creditcard"` | Full plan amount | Credit Card | Credit Card | Next period |
+| SEPA Direct Debit | `"ideal"` (via iDEAL) | €0.01 | SEPA Direct Debit | SEPA DD | Immediate |
+
+### Why credit card charges the full amount
+
+Credit card mandates support charging the full plan amount as the first payment.
+This IS the first subscription charge. The subscription then starts at the next
+period using `start_date:` to avoid double-charging.
+
+### Why SEPA DD uses iDEAL
+
+SEPA Direct Debit mandates are created through iDEAL — this is standard Mollie
+practice. The €0.01 payment establishes the mandate, then SEPA DD handles
+recurring charges.
+
+### Adding payment method selection
+
+Update your pricing view to include method radio buttons:
+
+```erb
+<%# app/views/pricing/show.html.erb — inside each plan card %>
+<%= form_with url: subscription_setup_path, data: { turbo: false } do |f| %>
+  <%= f.hidden_field :plan, value: plan_key %>
+
+  <div class="space-y-2 mt-4">
+    <label class="flex items-center gap-2">
+      <%= f.radio_button :method, "ideal", checked: true, class: "accent-blue-600" %>
+      iDEAL (€0.01 setup)
+    </label>
+    <label class="flex items-center gap-2">
+      <%= f.radio_button :method, "creditcard", class: "accent-blue-600" %>
+      Credit Card (first charge is full amount)
+    </label>
+  </div>
+
+  <%= f.submit "Subscribe", class: "mt-4 w-full bg-blue-600 text-white py-2 rounded" %>
+<% end %>
 ```
 
-Mollie handles proration at the payment level — the next charge will be for the
-new amount on the new interval.
+> **Important:** The `data: { turbo: false }` attribute is essential. Rails 8
+> includes Turbo Drive by default, which intercepts form submissions via
+> `fetch()`. Cross-origin redirects (to Mollie's checkout) are silently blocked
+> by the browser. This attribute disables Turbo for this form.
 
-### Refunds
-
-Refund a payment from the billing dashboard or an admin panel:
+### Updating the controller
 
 ```ruby
-Current.user.mollie_refund(payment)              # full refund
-Current.user.mollie_refund(payment, amount: 500) # partial — €5.00
+# app/controllers/subscription_setups_controller.rb
+class SubscriptionSetupsController < ApplicationController
+  ALLOWED_METHODS = %w[ideal creditcard].freeze
+
+  def create
+    method = params[:method]
+    method = nil unless ALLOWED_METHODS.include?(method)
+
+    plan = PricingController::PLANS[params[:plan]]
+    return redirect_to pricing_path, alert: "Invalid plan" unless plan
+
+    # Credit card: charge full amount as first payment
+    # Other methods: charge €0.01 to establish mandate
+    amount = method == "creditcard" ? plan[:amount] : 1
+
+    Current.user.update!(plan: params[:plan])
+    payment = Current.user.mollie_pay_first(
+      amount:       amount,
+      description:  "Acme SaaS — #{plan[:label]} setup",
+      redirect_url: billing_url,
+      method:       method
+    )
+    redirect_to payment.checkout_url, allow_other_host: true
+  end
+end
 ```
 
-### Production deployment
+### Handling the webhook callback
 
-Before going live:
+Update `on_mollie_first_payment_paid` to detect full-amount first payments and
+pass `start_date:` to avoid double-charging:
+
+```ruby
+# app/models/user.rb
+def on_mollie_first_payment_paid(payment)
+  return if mollie_subscribed?
+  return unless plan.present?
+
+  plan_details = PricingController::PLANS[plan]
+  return unless plan_details
+
+  # If first payment covered the full amount (credit card flow),
+  # start subscription at next period to avoid double-charging
+  start_date = if payment.amount >= plan_details[:amount]
+    Date.today + plan_details[:interval_duration]
+  end
+
+  mollie_subscribe(
+    amount:      plan_details[:amount],
+    interval:    plan_details[:interval],
+    description: "Acme SaaS #{plan_details[:label]} subscription",
+    start_date:  start_date
+  )
+end
+```
+
+You will need a helper method to compute the next period start date. Add to your
+`PricingController::PLANS` hash:
+
+```ruby
+PLANS = {
+  "monthly" => { label: "Monthly", amount: 2500, interval: "1 month", interval_duration: 1.month },
+  "yearly"  => { label: "Yearly",  amount: 25000, interval: "12 months", interval_duration: 1.year }
+}.freeze
+```
+
+---
+
+## Part 7: Using through associations
+
+MolliePay provides `has_many :through` associations that give your billable model
+direct access to payments, subscriptions, and mandates without navigating through
+the customer.
+
+### Before and after
+
+```ruby
+# Before (v0.1) — safe navigation required
+user.mollie_customer&.subscriptions&.active&.exists?
+user.mollie_customer&.payments || MolliePay::Payment.none
+
+# After (v0.2) — through associations, nil-safe
+user.mollie_subscriptions.active.exists?
+user.mollie_payments  # real association, works even without a customer
+```
+
+### Billing dashboard with real associations
+
+Since `mollie_payments` is a real ActiveRecord association, it supports full
+chaining:
+
+```ruby
+# app/controllers/billings_controller.rb
+@payments = Current.user.mollie_payments.order(created_at: :desc).limit(10)
+```
+
+### Eager loading for admin views
+
+When displaying multiple users with their subscription status, use `includes`
+to avoid N+1 queries:
+
+```ruby
+# app/controllers/admin/users_controller.rb
+@users = User.includes(mollie_customer: :subscriptions).page(params[:page])
+
+# In the view — no extra query per user
+@users.each do |user|
+  user.mollie_subscriptions.active.exists?  # uses preloaded data
+end
+```
+
+### Available scopes
+
+All scopes can be chained on the through associations:
+
+| Association | Scopes |
+|---|---|
+| `mollie_subscriptions` | `.active`, `.pending`, `.canceled`, `.suspended`, `.completed` |
+| `mollie_payments` | `.paid`, `.failed`, `.open`, `.recurring`, `.first_payments` |
+| `mollie_mandates` | `.valid_status`, `.pending` |
+
+---
+
+## Part 8: Production hardening
+
+Before going live, implement these patterns to handle real-world edge cases.
+
+### Idempotency guard on first payment callback
+
+The `ProcessWebhookJob` retries up to 5 times with polynomial backoff. Without
+a guard, a retry after partial success creates a duplicate Mollie subscription —
+meaning the customer gets charged twice on a recurring basis.
+
+```ruby
+def on_mollie_first_payment_paid(payment)
+  return if mollie_subscribed?   # essential — prevents duplicate subscriptions
+  # ... rest of subscription creation
+end
+```
+
+Additionally, `mollie_subscribe` itself has a built-in idempotency guard — it
+returns the existing subscription if one is pending or active. This provides
+defense-in-depth.
+
+### Webhook deduplication
+
+MolliePay v0.2 uses a unique database index on `mollie_pay_webhook_events.mollie_id`:
+
+```ruby
+# Old pattern (v0.1) — TOCTOU race condition
+unless WebhookEvent.pending.exists?(mollie_id:)
+  WebhookEvent.create!(mollie_id:)
+end
+
+# New pattern (v0.2) — database enforces uniqueness
+WebhookEvent.create!(mollie_id:)
+rescue ActiveRecord::RecordNotUnique
+  head :ok  # duplicate, safe to ignore
+```
+
+Why this matters: Mollie retries webhooks, and concurrent deliveries can arrive
+simultaneously. The `exists?`-then-create pattern has a time-of-check to
+time-of-use (TOCTOU) race condition where two concurrent requests both pass the
+`exists?` check. The unique index + rescue pattern is atomic.
+
+### Error handling in controllers
+
+Add a rescue pattern for all controllers that call the Mollie API:
+
+```ruby
+rescue Mollie::RequestError, MolliePay::ConfigurationError => e
+  Rails.logger.error("Mollie API error: #{e.message}")
+  redirect_to pricing_path, alert: "Payment service unavailable. Please try again."
+end
+```
+
+### Turbo Drive and external redirects
+
+Rails 8 includes Turbo Drive by default. Turbo intercepts form submissions via
+`fetch()`. Cross-origin redirects (to Mollie's checkout page) are silently
+blocked by the browser.
+
+**Fix:** Add `data: { turbo: false }` on every form that redirects to Mollie:
+
+```erb
+<%= form_with url: subscription_setup_path, data: { turbo: false } do |f| %>
+  <%# ... %>
+<% end %>
+```
+
+This applies to subscription setup forms, one-off payment forms, and any form
+that ultimately redirects to `payment.checkout_url`.
+
+Also use `allow_other_host: true` in your controller redirects:
+
+```ruby
+redirect_to payment.checkout_url, allow_other_host: true
+```
+
+### Production deployment checklist
 
 1. Switch to a `live_` API key
 2. Set `host` to your real domain with HTTPS (e.g. `https://yourapp.com`)
 3. Configure a proper queue backend (Solid Queue, Sidekiq, etc.)
 4. Add rate limiting to the webhook endpoint (see README)
 5. Set up monitoring for failed webhook jobs
+6. Test each payment method in Mollie's test mode before going live
