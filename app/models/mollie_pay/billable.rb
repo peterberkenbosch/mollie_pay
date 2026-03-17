@@ -43,6 +43,9 @@ module MolliePay
     def mollie_subscribe(amount:, interval:, description:, start_date: nil)
       raise MolliePay::MandateRequired, "No valid mandate on file" unless mollie_mandated?
 
+      existing = mollie_subscriptions.where(status: %w[pending active]).first
+      return existing if existing
+
       customer = mollie_customer!
       params = {
         customer_id: customer.mollie_id,
