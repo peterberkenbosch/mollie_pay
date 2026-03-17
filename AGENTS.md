@@ -53,7 +53,6 @@ app/
     payment.rb
     refund.rb
     subscription.rb
-    webhook_event.rb            # owns process! — the webhook entry point
 lib/
   mollie_pay/
     configuration.rb
@@ -86,14 +85,27 @@ ProcessWebhookJob#perform(mollie_id)
   → discards Mollie::ResourceNotFoundError (404) and RecordNotFound — no retry
 ```
 
-No `WebhookEvent` model. The controller validates and enqueues. The job does the
-work. Domain models own their state. ActiveJob owns retries. Mollie sends only an
-`id` — we always fetch the full object from the API. The API key is the
-verification — no signature needed.
+**No `WebhookEvent` model — by design.** There is no intermediate event table.
+The controller validates and enqueues. The job does the work. Domain models own
+their state. ActiveJob owns retries. This follows the 37signals principle: don't
+create mutable infrastructure records when the real state already lives on domain
+models (Payment, Subscription, Refund) and the retry/failure tracking already
+lives in ActiveJob. Mollie sends only an `id` — we always fetch the full object
+from the API. The API key is the verification — no signature needed.
+
+**Do not re-introduce a webhook event model.** If you need an audit trail of
+Mollie webhooks, check Mollie's dashboard. If you need to know why a payment is
+in a certain state, check the domain model's status and transition timestamps.
 
 **Idempotency:** `record_from_mollie` uses `find_or_initialize_by(mollie_id:)` +
 `previous_status` check. Hooks fire only on actual status transitions. Transition
 timestamps are set once, never overwritten. Host app hooks should be idempotent.
+
+**Concurrent INSERT race:** `Payment.record_from_mollie` and
+`Refund.record_from_mollie` rescue `ActiveRecord::RecordNotUnique` and fall back
+to `find_by!`, matching the existing `Subscription.record_from_mollie` pattern.
+This handles the case where two concurrent jobs for the same `mollie_id` both
+try to create a new record simultaneously.
 
 ---
 
