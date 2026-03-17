@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.0] - 2026-03-17
+
+### Changed
+- **Breaking:** Removed `WebhookEvent` model and `mollie_pay_webhook_events` table.
+  The controller now validates and enqueues `ProcessWebhookJob` directly with the
+  `mollie_id` — no intermediate database record. Processing logic moved into the
+  job. Domain models own state, ActiveJob owns retries.
+- `ProcessWebhookJob` accepts `mollie_id` string instead of `event_id` integer
+
+### Fixed
+- Webhook status transitions: Mollie sends multiple webhooks per resource ID
+  (e.g., `authorized` then `paid`). The old unique index on `webhook_events`
+  silently dropped subsequent webhooks, leaving payments stuck
+- `Payment.record_from_mollie` and `Refund.record_from_mollie` now rescue
+  `RecordNotUnique` on concurrent INSERT race (matching existing Subscription)
+- `ProcessWebhookJob` discards `ActiveRecord::RecordNotFound` instead of retrying
+  5 times for locally unknown subscription/refund IDs
+
+### Migration Required
+- Run `rails mollie_pay:install:migrations && rails db:migrate` to drop the
+  `mollie_pay_webhook_events` table
+
 ## [0.3.0] - 2026-03-17
 
 ### Added

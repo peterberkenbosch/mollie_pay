@@ -1214,26 +1214,29 @@ Additionally, `mollie_subscribe` itself has a built-in idempotency guard — it
 returns the existing subscription if one is pending or active. This provides
 defense-in-depth.
 
-### Webhook deduplication
+### Webhook processing
 
-MolliePay v0.2 uses a unique database index on `mollie_pay_webhook_events.mollie_id`:
+MolliePay has no event model. The controller validates the Mollie ID format and
+enqueues a job directly. The job fetches from the Mollie API and delegates to
+domain models. Idempotency lives at the model layer:
 
 ```ruby
-# Old pattern (v0.1) — TOCTOU race condition
-unless WebhookEvent.pending.exists?(mollie_id:)
-  WebhookEvent.create!(mollie_id:)
-end
+# Controller — validate and enqueue, nothing else
+ProcessWebhookJob.perform_later(mollie_id)
+head :ok
 
-# New pattern (v0.2) — database enforces uniqueness
-WebhookEvent.create!(mollie_id:)
-rescue ActiveRecord::RecordNotUnique
-  head :ok  # duplicate, safe to ignore
+# Job — fetch and delegate by ID prefix
+Payment.record_from_mollie(Mollie::Payment.get(mollie_id))
+
+# Model — idempotent upsert, hooks fire only on status transitions
+payment = find_or_initialize_by(mollie_id: mp.id)
+previous_status = payment.status
+payment.update!(...)
+payment.notify_billable if payment.status != previous_status
 ```
 
-Why this matters: Mollie retries webhooks, and concurrent deliveries can arrive
-simultaneously. The `exists?`-then-create pattern has a time-of-check to
-time-of-use (TOCTOU) race condition where two concurrent requests both pass the
-`exists?` check. The unique index + rescue pattern is atomic.
+This follows the 37signals principle: domain models own their state, ActiveJob
+owns retry/failure tracking. No mutable event records, no intermediate state.
 
 ### Error handling in controllers
 
