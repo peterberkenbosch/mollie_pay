@@ -27,6 +27,8 @@ module MolliePay
     end
 
     test "record_from_mollie creates subscription from mollie object" do
+      mollie_pay_subscriptions(:acme_monthly).update!(status: "canceled", canceled_at: Time.current)
+
       mollie_sub = stub_mollie_subscription(
         id:          "sub_new456",
         status:      "active",
@@ -79,16 +81,83 @@ module MolliePay
       assert_equal "canceled", existing.reload.status
     end
 
+    test "name validates presence" do
+      sub = mollie_pay_subscriptions(:acme_monthly)
+      sub.name = ""
+      assert_not sub.valid?
+      assert_includes sub.errors[:name], "can't be blank"
+    end
+
+    test "named scope filters by name" do
+      assert_includes Subscription.named("default"), mollie_pay_subscriptions(:acme_monthly)
+      assert_includes Subscription.named("analytics_addon"), mollie_pay_subscriptions(:acme_addon)
+      assert_empty Subscription.named("nonexistent")
+    end
+
+    test "record_from_mollie preserves existing name" do
+      existing = mollie_pay_subscriptions(:acme_monthly)
+      assert_equal "default", existing.name
+
+      mollie_sub = stub_mollie_subscription(
+        id:          existing.mollie_id,
+        status:      "active",
+        customer_id: mollie_pay_customers(:acme).mollie_id,
+        interval:    "1 month",
+        amount_value: "25.00",
+        amount_currency: "EUR"
+      )
+
+      Subscription.record_from_mollie(mollie_sub)
+
+      assert_equal "default", existing.reload.name
+    end
+
+    test "record_from_mollie reads name from metadata for new records" do
+      mollie_pay_subscriptions(:acme_monthly).update!(status: "canceled", canceled_at: Time.current)
+
+      mollie_sub = stub_mollie_subscription(
+        id:          "sub_from_webhook",
+        status:      "active",
+        customer_id: mollie_pay_customers(:acme).mollie_id,
+        interval:    "1 month",
+        amount_value: "30.00",
+        amount_currency: "EUR",
+        metadata:    { "mollie_pay_name" => "premium" }
+      )
+
+      subscription = Subscription.record_from_mollie(mollie_sub)
+
+      assert_equal "premium", subscription.name
+    end
+
+    test "record_from_mollie defaults name to 'default' without metadata" do
+      mollie_pay_subscriptions(:acme_monthly).update!(status: "canceled", canceled_at: Time.current)
+
+      mollie_sub = stub_mollie_subscription(
+        id:          "sub_no_meta",
+        status:      "active",
+        customer_id: mollie_pay_customers(:acme).mollie_id,
+        interval:    "1 month",
+        amount_value: "20.00",
+        amount_currency: "EUR"
+      )
+
+      subscription = Subscription.record_from_mollie(mollie_sub)
+
+      assert_equal "default", subscription.name
+    end
+
     private
 
-      def stub_mollie_subscription(id:, status:, customer_id:, interval:, amount_value:, amount_currency:)
+      def stub_mollie_subscription(id:, status:, customer_id:, interval:, amount_value:, amount_currency:, metadata: nil)
         amount = OpenStruct.new(value: amount_value, currency: amount_currency)
         OpenStruct.new(
           id:          id,
           status:      status,
           customer_id: customer_id,
           interval:    interval,
-          amount:      amount
+          amount:      amount,
+          metadata:    metadata
         )
       end
   end

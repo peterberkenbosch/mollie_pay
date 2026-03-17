@@ -5,3 +5,13 @@ acme_monthly:
   amount: 2500
   currency: EUR
   interval: "1 month"
+  name: default
+
+acme_addon:
+  customer: acme
+  mollie_id: sub_acme_addon
+  status: active
+  amount: 1000
+  currency: EUR
+  interval: "1 month"
+  name: analytics_addon
