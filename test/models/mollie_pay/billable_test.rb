@@ -413,6 +413,105 @@ module MolliePay
       assert_equal @org.mollie_customer.mollie_id, received_options[:customer_id]
     end
 
+    # === Named subscriptions ===
+
+    test "mollie_subscribe creates named subscription" do
+      stub_mollie_subscription_create(id: "sub_new_addon") do
+        subscription = @org.mollie_subscribe(
+          amount: 1000,
+          interval: "1 month",
+          description: "Analytics addon",
+          name: "reporting"
+        )
+
+        assert_equal "sub_new_addon", subscription.mollie_id
+        assert_equal "reporting", subscription.name
+      end
+    end
+
+    test "mollie_subscribe passes name in Mollie metadata" do
+      received_args = nil
+      response = fake_mollie_subscription(id: "sub_meta_test")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Customer::Subscription.stub(:create, fake_create) do
+        @org.mollie_subscribe(
+          amount: 1000,
+          interval: "1 month",
+          description: "With metadata",
+          name: "reporting"
+        )
+      end
+
+      assert_equal({ mollie_pay_name: "reporting" }, received_args[:metadata])
+    end
+
+    test "mollie_subscribe idempotency guard is scoped by name" do
+      # acme_monthly (default) and acme_addon (analytics_addon) are both active
+      assert @org.mollie_subscribed?(name: "default")
+      assert @org.mollie_subscribed?(name: "analytics_addon")
+
+      # Creating a new name should work (not return existing default)
+      stub_mollie_subscription_create(id: "sub_new_name") do
+        subscription = @org.mollie_subscribe(
+          amount: 500,
+          interval: "1 month",
+          description: "New addon",
+          name: "reporting"
+        )
+
+        assert_equal "sub_new_name", subscription.mollie_id
+        assert_equal "reporting", subscription.name
+      end
+    end
+
+    test "mollie_subscribe returns existing for same name" do
+      existing = mollie_pay_subscriptions(:acme_addon)
+      assert_equal "analytics_addon", existing.name
+
+      result = @org.mollie_subscribe(
+        amount: 9999,
+        interval: "1 year",
+        description: "Different params",
+        name: "analytics_addon"
+      )
+
+      assert_equal existing, result
+    end
+
+    test "mollie_subscribed? scoped by name" do
+      assert @org.mollie_subscribed?(name: "default")
+      assert @org.mollie_subscribed?(name: "analytics_addon")
+      assert_not @org.mollie_subscribed?(name: "nonexistent")
+    end
+
+    test "mollie_subscription scoped by name" do
+      assert_equal mollie_pay_subscriptions(:acme_monthly), @org.mollie_subscription(name: "default")
+      assert_equal mollie_pay_subscriptions(:acme_addon), @org.mollie_subscription(name: "analytics_addon")
+      assert_nil @org.mollie_subscription(name: "nonexistent")
+    end
+
+    test "mollie_cancel_subscription cancels named subscription" do
+      addon = mollie_pay_subscriptions(:acme_addon)
+      assert addon.active?
+
+      fake_cancel = ->(id, **_opts) { nil }
+      Mollie::Customer::Subscription.stub(:cancel, fake_cancel) do
+        @org.mollie_cancel_subscription(name: "analytics_addon")
+      end
+
+      assert_equal "canceled", addon.reload.status
+      assert_not_nil addon.canceled_at
+      # Default subscription should still be active
+      assert @org.mollie_subscribed?(name: "default")
+    end
+
+    test "mollie_cancel_subscription raises for nonexistent name" do
+      assert_raises(MolliePay::SubscriptionNotFound) do
+        @org.mollie_cancel_subscription(name: "nonexistent")
+      end
+    end
+
     test "on_mollie_* hooks are defined and callable" do
       payment      = mollie_pay_payments(:acme_first)
       subscription = mollie_pay_subscriptions(:acme_monthly)

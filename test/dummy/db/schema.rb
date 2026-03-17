@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_17_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_18_100000) do
   create_table "mollie_pay_customers", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "mollie_id", null: false
@@ -76,8 +76,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_17_100000) do
     t.integer "customer_id", null: false
     t.string "interval", null: false
     t.string "mollie_id", null: false
+    t.string "name", default: "default", null: false
     t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
+    t.index ["customer_id", "name"], name: "idx_mollie_subs_unique_active_per_customer_name", unique: true, where: "status IN ('pending', 'active')"
     t.index ["customer_id", "status"], name: "index_mollie_pay_subscriptions_on_customer_id_and_status"
     t.index ["customer_id"], name: "index_mollie_pay_subscriptions_on_customer_id"
     t.index ["mollie_id"], name: "index_mollie_pay_subscriptions_on_mollie_id", unique: true

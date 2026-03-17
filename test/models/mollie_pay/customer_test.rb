@@ -22,9 +22,10 @@ module MolliePay
       assert mollie_pay_customers(:acme).mandated?
     end
 
-    test "active_subscription returns first active subscription" do
+    test "active_subscription returns an active subscription" do
       sub = mollie_pay_customers(:acme).active_subscription
-      assert_equal mollie_pay_subscriptions(:acme_monthly), sub
+      assert sub.active?
+      assert_includes [ mollie_pay_subscriptions(:acme_monthly), mollie_pay_subscriptions(:acme_addon) ], sub
     end
   end
 end

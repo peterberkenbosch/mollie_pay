@@ -40,10 +40,10 @@ module MolliePay
       create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type: "first")
     end
 
-    def mollie_subscribe(amount:, interval:, description:, start_date: nil)
+    def mollie_subscribe(amount:, interval:, description:, start_date: nil, name: "default")
       raise MolliePay::MandateRequired, "No valid mandate on file" unless mollie_mandated?
 
-      existing = mollie_subscriptions.where(status: %w[pending active]).first
+      existing = mollie_subscriptions.where(status: Subscription::ACTIVE_STATUSES, name: name).first
       return existing if existing
 
       customer = mollie_customer!
@@ -52,7 +52,8 @@ module MolliePay
         amount:      mollie_amount(amount),
         interval:    interval,
         description: description,
-        webhook_url: MolliePay.configuration.webhook_url
+        webhook_url: MolliePay.configuration.webhook_url,
+        metadata:    { mollie_pay_name: name }
       }
       params[:start_date] = start_date.to_s if start_date
       ms = Mollie::Customer::Subscription.create(**params)
@@ -62,12 +63,16 @@ module MolliePay
         status:    ms.status,
         amount:    amount,
         currency:  MolliePay.configuration.currency,
-        interval:  interval
+        interval:  interval,
+        name:      name
       )
+    rescue ActiveRecord::RecordNotUnique
+      Mollie::Customer::Subscription.cancel(ms.id, customer_id: customer.mollie_id)
+      mollie_subscriptions.where(status: Subscription::ACTIVE_STATUSES, name: name).first!
     end
 
-    def mollie_cancel_subscription
-      subscription = mollie_subscription
+    def mollie_cancel_subscription(name: "default")
+      subscription = mollie_subscriptions.active.named(name).first
       raise MolliePay::SubscriptionNotFound, "No active subscription" unless subscription
 
       Mollie::Customer::Subscription.cancel(
@@ -94,16 +99,16 @@ module MolliePay
 
     # === State queries ===
 
-    def mollie_subscribed?
-      mollie_subscriptions.active.exists?
+    def mollie_subscribed?(name: "default")
+      mollie_subscriptions.active.named(name).exists?
     end
 
     def mollie_mandated?
       mollie_mandates.valid_status.exists?
     end
 
-    def mollie_subscription
-      mollie_subscriptions.active.first
+    def mollie_subscription(name: "default")
+      mollie_subscriptions.active.named(name).first
     end
 
     def mollie_mandate
