@@ -85,6 +85,41 @@ module MolliePay
       assert_equal original_paid_at, existing.reload.paid_at
     end
 
+    test "record_from_mollie links recurring payment to subscription" do
+      customer     = mollie_pay_customers(:acme)
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+
+      mollie_payment = stub_mollie_payment(
+        id:              "tr_recurring_new",
+        status:          "paid",
+        customer_id:     customer.mollie_id,
+        sequence_type:   "recurring",
+        amount_value:    "25.00",
+        amount_currency: "EUR",
+        subscription_id: subscription.mollie_id
+      )
+
+      payment = Payment.record_from_mollie(mollie_payment)
+      assert_equal subscription, payment.subscription
+    end
+
+    test "record_from_mollie ignores subscription_id when subscription not found locally" do
+      customer = mollie_pay_customers(:acme)
+
+      mollie_payment = stub_mollie_payment(
+        id:              "tr_orphan",
+        status:          "paid",
+        customer_id:     customer.mollie_id,
+        sequence_type:   "recurring",
+        amount_value:    "25.00",
+        amount_currency: "EUR",
+        subscription_id: "sub_nonexistent"
+      )
+
+      payment = Payment.record_from_mollie(mollie_payment)
+      assert_nil payment.subscription
+    end
+
     test "record_from_mollie skips notify_billable when status unchanged" do
       existing = mollie_pay_payments(:acme_first)
       assert_equal "paid", existing.status
@@ -107,15 +142,16 @@ module MolliePay
 
     private
 
-    def stub_mollie_payment(id:, status:, customer_id:, sequence_type:, amount_value:, amount_currency:)
+    def stub_mollie_payment(id:, status:, customer_id:, sequence_type:, amount_value:, amount_currency:, subscription_id: nil)
       amount = OpenStruct.new(value: amount_value, currency: amount_currency)
       OpenStruct.new(
-        id:            id,
-        status:        status,
-        customer_id:   customer_id,
-        sequence_type: sequence_type,
-        amount:        amount,
-        mandate_id:    nil
+        id:              id,
+        status:          status,
+        customer_id:     customer_id,
+        sequence_type:   sequence_type,
+        amount:          amount,
+        mandate_id:      nil,
+        subscription_id: subscription_id
       )
     end
   end

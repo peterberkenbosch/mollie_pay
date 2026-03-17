@@ -5,11 +5,11 @@ module MolliePay
     def create
       mollie_id = params.expect(:id)
 
-      unless WebhookEvent.pending.exists?(mollie_id: mollie_id)
-        event = WebhookEvent.create!(mollie_id: mollie_id)
-        ProcessWebhookJob.perform_later(event.id)
-      end
+      event = WebhookEvent.create!(mollie_id: mollie_id)
+      ProcessWebhookJob.perform_later(event.id)
 
+      head :ok
+    rescue ActiveRecord::RecordNotUnique
       head :ok
     rescue ActionController::ParameterMissing, ActiveRecord::RecordInvalid
       head :unprocessable_entity

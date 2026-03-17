@@ -7,6 +7,21 @@ module MolliePay
               class_name: "MolliePay::Customer",
               as:          :owner,
               dependent:   :destroy
+
+      has_many :mollie_subscriptions,
+               through:    :mollie_customer,
+               source:     :subscriptions,
+               class_name: "MolliePay::Subscription"
+
+      has_many :mollie_payments,
+               through:    :mollie_customer,
+               source:     :payments,
+               class_name: "MolliePay::Payment"
+
+      has_many :mollie_mandates,
+               through:    :mollie_customer,
+               source:     :mandates,
+               class_name: "MolliePay::Mandate"
     end
 
     # === Customer ===
@@ -75,23 +90,19 @@ module MolliePay
     # === State queries ===
 
     def mollie_subscribed?
-      mollie_customer&.subscriptions&.active&.exists?
+      mollie_subscriptions.active.exists?
     end
 
     def mollie_mandated?
-      mollie_customer&.mandates&.valid_status&.exists?
+      mollie_mandates.valid_status.exists?
     end
 
     def mollie_subscription
-      mollie_customer&.subscriptions&.active&.first
+      mollie_subscriptions.active.first
     end
 
     def mollie_mandate
-      mollie_customer&.mandates&.valid_status&.first
-    end
-
-    def mollie_payments
-      mollie_customer&.payments || Payment.none
+      mollie_mandates.valid_status.first
     end
 
     # === Hooks — override these in your model ===
