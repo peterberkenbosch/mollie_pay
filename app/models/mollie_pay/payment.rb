@@ -5,7 +5,8 @@ module MolliePay
 
     belongs_to :customer
     belongs_to :subscription, optional: true
-    has_many   :refunds, dependent: :destroy
+    has_many   :refunds,      dependent: :destroy
+    has_many   :chargebacks,  dependent: :destroy
 
     # amount_remaining uses nil-semantics: nil = "never fetched from Mollie",
     # 0 = "fully captured/refunded". Only populated when Mollie includes the field.
@@ -27,6 +28,7 @@ module MolliePay
 
       payment = find_or_initialize_by(mollie_id: mp.id)
       previous_status = payment.status
+      previous_amount_charged_back = payment.amount_charged_back
 
       # Link recurring payments to their subscription
       if mp.subscription_id.present? && payment.subscription_id.nil?
@@ -52,6 +54,7 @@ module MolliePay
       )
 
       payment.notify_billable(mp) if payment.status != previous_status
+      Chargeback.sync_for_payment(payment) if payment.amount_charged_back != previous_amount_charged_back
       payment
     rescue ActiveRecord::RecordNotUnique
       find_by!(mollie_id: mp.id)

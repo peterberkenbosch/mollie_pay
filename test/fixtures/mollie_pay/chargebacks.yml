@@ -1,0 +1,7 @@
+acme_chargeback:
+  payment: acme_first
+  mollie_id: chb_chargeback123
+  amount: 500
+  currency: EUR
+  reason: Chargeback received
+  created_at_mollie: <%= 2.days.ago %>

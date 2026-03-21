@@ -50,6 +50,7 @@ app/
     billable.rb                 # concern included by host app model
     customer.rb
     mandate.rb
+    chargeback.rb
     payment.rb
     refund.rb
     subscription.rb
@@ -197,6 +198,8 @@ Event hooks (override in host model, all no-ops by default):
 - `on_mollie_subscription_completed`
 - `on_mollie_mandate_created`
 - `on_mollie_refund_processed`
+- `on_mollie_chargeback_received`
+- `on_mollie_chargeback_reversed`
 
 ---
 
