@@ -43,6 +43,33 @@ module MolliePay
       assert_equal "refunded", refund.reload.status
     end
 
+    test "processes settlement webhook via ActiveSupport::Notifications" do
+      settlement = OpenStruct.new(
+        id: "stl_test123", status: "paidout",
+        amount: OpenStruct.new(value: "100.00", currency: "EUR")
+      )
+
+      received = nil
+      ActiveSupport::Notifications.subscribe("mollie_pay.settlement_received") do |*, payload|
+        received = payload[:settlement]
+      end
+
+      Mollie::Settlement.stub(:get, settlement) do
+        ProcessWebhookJob.perform_now("stl_test123")
+      end
+
+      assert_equal "stl_test123", received.id
+      assert_equal "paidout", received.status
+    ensure
+      ActiveSupport::Notifications.unsubscribe("mollie_pay.settlement_received")
+    end
+
+    test "logs unknown webhook prefix" do
+      assert_nothing_raised do
+        ProcessWebhookJob.perform_now("ord_unknown123")
+      end
+    end
+
     test "retries on failure" do
       Mollie::Payment.stub(:get, ->(_) { raise StandardError, "Mollie down" }) do
         assert_enqueued_with(job: ProcessWebhookJob) do

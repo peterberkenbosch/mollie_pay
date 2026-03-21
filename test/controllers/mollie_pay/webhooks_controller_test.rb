@@ -26,6 +26,14 @@ module MolliePay
       assert_response :ok
     end
 
+    test "accepts settlement webhook" do
+      assert_enqueued_with(job: MolliePay::ProcessWebhookJob, args: [ "stl_abc123" ]) do
+        post mollie_pay.webhooks_url, params: { id: "stl_abc123" }
+      end
+
+      assert_response :ok
+    end
+
     test "returns 422 without id param" do
       assert_no_enqueued_jobs only: MolliePay::ProcessWebhookJob do
         post mollie_pay.webhooks_url, params: {}
@@ -37,6 +45,23 @@ module MolliePay
     test "returns 422 with invalid mollie_id format" do
       assert_no_enqueued_jobs only: MolliePay::ProcessWebhookJob do
         post mollie_pay.webhooks_url, params: { id: "invalid_format" }
+      end
+
+      assert_response :unprocessable_entity
+    end
+
+    test "returns 422 for unknown prefix" do
+      assert_no_enqueued_jobs only: MolliePay::ProcessWebhookJob do
+        post mollie_pay.webhooks_url, params: { id: "zz_unknown" }
+      end
+
+      assert_response :unprocessable_entity
+    end
+
+    test "returns 422 for excessively long mollie_id" do
+      long_id = "tr_#{"a" * 65}"
+      assert_no_enqueued_jobs only: MolliePay::ProcessWebhookJob do
+        post mollie_pay.webhooks_url, params: { id: long_id }
       end
 
       assert_response :unprocessable_entity
