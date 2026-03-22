@@ -219,6 +219,25 @@ automatically. No separate Mollie SDK setup is needed.
 
 ---
 
+## Mollie API reference
+
+The official Mollie API Reference at https://docs.mollie.com/reference/overview
+is the **source of truth** for all API integration work. Always verify response
+structures, field names, and endpoint behaviour against these docs.
+
+**Do not rely solely on `mollie-api-ruby` class definitions.** The gem may not
+expose all API fields via `attr_accessor` (e.g., `reason` on chargebacks). The
+full response data is always available via `mollie_object.attributes` — a hash
+stored by `Mollie::Base` containing every field the API returned.
+
+**Key SDK behaviour:** `Mollie::Util.nested_underscore_keys` converts all API
+response keys from camelCase to snake_case. This means:
+- The API returns `createdAt`, `paymentId`, `settlementAmount`
+- After SDK parsing, these become `created_at`, `payment_id`, `settlement_amount`
+- JSON test fixtures must use camelCase (matching the real API)
+
+---
+
 ## Testing
 
 - Framework: **Minitest** (Rails default)
@@ -227,6 +246,10 @@ automatically. No separate Mollie SDK setup is needed.
 - Mollie API objects are stubbed with plain `OpenStruct` or `Object.new` with
   `define_singleton_method`
 - Use `Model.stub(:method, value)` blocks for isolation — never Mocha
+- JSON test fixtures in `lib/mollie_pay/test_fixtures/` must match real Mollie
+  API responses exactly — use **camelCase** keys, include all fields the API
+  returns. Never copy fixtures from the `mollie-api-ruby` gem without verifying
+  against the live API first.
 
 ### Running tests
 
