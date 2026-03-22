@@ -87,6 +87,17 @@ module MolliePay
       Mollie::Customer::Subscription.stub(:cancel, nil, &block)
     end
 
+    # Stub Mollie::Customer::Subscription.update.
+    #
+    #   stub_mollie_subscription_update do
+    #     @user.mollie_swap_subscription(amount: 4999)
+    #   end
+    #
+    def stub_mollie_subscription_update(**overrides, &block)
+      response = fake_mollie_subscription(**overrides)
+      Mollie::Customer::Subscription.stub(:update, response, &block)
+    end
+
     # Stub Mollie::Refund.create.
     #
     #   stub_mollie_refund_create do

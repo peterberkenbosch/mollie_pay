@@ -158,6 +158,43 @@ end
 - Bust the cache manually when you change payment method settings in the
   Mollie dashboard: `Rails.cache.delete_matched("mollie_payment_methods*")`
 
+## Subscription plan swap (upgrade/downgrade)
+
+Change a customer's subscription amount and/or interval without canceling:
+
+```ruby
+organization.mollie_swap_subscription(amount: 4999)                           # change amount only
+organization.mollie_swap_subscription(interval: "1 year")                     # change interval only
+organization.mollie_swap_subscription(amount: 4999, interval: "1 year")       # change both
+organization.mollie_swap_subscription(name: "addon", amount: 1999)            # named subscription
+```
+
+This uses the Mollie Update Subscription API (`PATCH`) to modify the existing
+subscription in place. The change takes effect on the **next billing cycle** —
+Mollie does not calculate proration.
+
+- Returns the existing subscription unchanged if the values are already the same (no API call)
+- Raises `SubscriptionNotFound` if no active or pending subscription exists for the name
+- Fires `on_mollie_subscription_swapped(subscription, previous_amount:, previous_interval:)`
+
+### Proration
+
+Mollie does not handle proration. If you need to charge the upgrade difference
+immediately, use the swap hook:
+
+```ruby
+def on_mollie_subscription_swapped(subscription, previous_amount:, previous_interval:)
+  if subscription.amount > previous_amount
+    difference = subscription.amount - previous_amount
+    mollie_pay_once(
+      amount: difference,
+      description: "Plan upgrade proration",
+      redirect_url: billing_url
+    )
+  end
+end
+```
+
 ## Errors
 
 | Error | Raised when |
