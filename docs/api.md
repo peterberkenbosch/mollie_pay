@@ -165,6 +165,7 @@ end
 | `MolliePay::ConfigurationError` | `api_key` or `host` is missing at boot, or no `redirect_url` is available |
 | `MolliePay::MandateRequired` | `mollie_subscribe` is called without a valid mandate |
 | `MolliePay::SubscriptionNotFound` | `mollie_cancel_subscription` is called without an active subscription |
+| `MolliePay::PaymentNotCancelable` | `mollie_cancel_payment` is called on a payment Mollie says is not cancelable |
 
 All inherit from `MolliePay::Error < StandardError`.
 

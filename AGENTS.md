@@ -174,6 +174,8 @@ Public methods:
 - `mollie_pay_first(amount:, description:, redirect_url: nil, method: nil, metadata: nil)` → returns `Payment` with `checkout_url`
 - `mollie_subscribe(amount:, interval:, description:, start_date: nil, name: "default")` → returns `Subscription` (returns existing if pending/active for that name)
 - `mollie_cancel_subscription(name: "default")`
+- `mollie_update_payment(payment, description: nil, redirect_url: nil, metadata: nil)`
+- `mollie_cancel_payment(payment)` — raises `PaymentNotCancelable` if Mollie says it's not cancelable
 - `mollie_refund(payment, amount: nil)`
 - `mollie_subscribed?(name: "default")`
 - `mollie_mandated?`
