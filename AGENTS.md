@@ -174,6 +174,7 @@ Public methods:
 - `mollie_pay_first(amount:, description:, redirect_url: nil, method: nil, metadata: nil)` → returns `Payment` with `checkout_url`
 - `mollie_subscribe(amount:, interval:, description:, start_date: nil, name: "default")` → returns `Subscription` (returns existing if pending/active for that name)
 - `mollie_cancel_subscription(name: "default")`
+- `mollie_swap_subscription(name: "default", amount: nil, interval: nil)` — upgrade/downgrade via Mollie PATCH
 - `mollie_update_payment(payment, description: nil, redirect_url: nil, metadata: nil)`
 - `mollie_cancel_payment(payment)` — raises `PaymentNotCancelable` if Mollie says it's not cancelable
 - `mollie_refund(payment, amount: nil)`
@@ -203,6 +204,7 @@ Event hooks (override in host model, all no-ops by default):
 - `on_mollie_refund_processed`
 - `on_mollie_chargeback_received`
 - `on_mollie_chargeback_reversed`
+- `on_mollie_subscription_swapped(subscription, previous_amount:, previous_interval:)`
 
 ---
 

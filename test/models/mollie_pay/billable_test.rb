@@ -512,6 +512,140 @@ module MolliePay
       end
     end
 
+    # === Subscription swap ===
+
+    test "mollie_swap_subscription updates amount on active subscription" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+      assert_equal 2500, subscription.amount
+
+      stub_mollie_subscription_update do
+        result = @org.mollie_swap_subscription(amount: 4999)
+        assert_equal subscription, result
+      end
+
+      assert_equal 4999, subscription.reload.amount
+      assert_equal "1 month", subscription.interval
+    end
+
+    test "mollie_swap_subscription updates interval on active subscription" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+
+      stub_mollie_subscription_update do
+        @org.mollie_swap_subscription(interval: "1 year")
+      end
+
+      assert_equal "1 year", subscription.reload.interval
+      assert_equal 2500, subscription.amount
+    end
+
+    test "mollie_swap_subscription updates both amount and interval" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+
+      stub_mollie_subscription_update do
+        @org.mollie_swap_subscription(amount: 9999, interval: "1 year")
+      end
+
+      assert_equal 9999, subscription.reload.amount
+      assert_equal "1 year", subscription.interval
+    end
+
+    test "mollie_swap_subscription sends only changed values to Mollie" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+      received_params = nil
+      fake_update = ->(id, **params) { received_params = params; OpenStruct.new(id: id, status: "active") }
+
+      Mollie::Customer::Subscription.stub(:update, fake_update) do
+        @org.mollie_swap_subscription(amount: 4999)
+      end
+
+      assert_equal({ currency: "EUR", value: "49.99" }, received_params[:amount])
+      assert_nil received_params[:interval]
+    end
+
+    test "mollie_swap_subscription is a no-op when nothing changed" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+      api_called = false
+      fake_update = ->(*, **) { api_called = true; OpenStruct.new }
+
+      Mollie::Customer::Subscription.stub(:update, fake_update) do
+        result = @org.mollie_swap_subscription(amount: subscription.amount)
+        assert_equal subscription, result
+      end
+
+      assert_not api_called, "Should not call Mollie API when nothing changed"
+    end
+
+    test "mollie_swap_subscription raises when no active subscription" do
+      org = Organization.create!(name: "New Org", email: "new@org.nl")
+      assert_raises(MolliePay::SubscriptionNotFound) do
+        org.mollie_swap_subscription(amount: 4999)
+      end
+    end
+
+    test "mollie_swap_subscription works with named subscriptions" do
+      addon = mollie_pay_subscriptions(:acme_addon)
+      assert_equal 1000, addon.amount
+
+      stub_mollie_subscription_update do
+        @org.mollie_swap_subscription(name: "analytics_addon", amount: 1999)
+      end
+
+      assert_equal 1999, addon.reload.amount
+    end
+
+    test "mollie_swap_subscription fires on_mollie_subscription_swapped hook" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+      hook_called = false
+      hook_sub = nil
+      hook_prev_amount = nil
+      hook_prev_interval = nil
+
+      @org.define_singleton_method(:on_mollie_subscription_swapped) do |sub, previous_amount:, previous_interval:|
+        hook_called = true
+        hook_sub = sub
+        hook_prev_amount = previous_amount
+        hook_prev_interval = previous_interval
+      end
+
+      stub_mollie_subscription_update do
+        @org.mollie_swap_subscription(amount: 4999, interval: "1 year")
+      end
+
+      assert hook_called, "on_mollie_subscription_swapped should have been called"
+      assert_equal subscription, hook_sub
+      assert_equal 2500, hook_prev_amount
+      assert_equal "1 month", hook_prev_interval
+    end
+
+    test "mollie_swap_subscription does not fire hook on no-op" do
+      hook_called = false
+      @org.define_singleton_method(:on_mollie_subscription_swapped) { |*, **| hook_called = true }
+
+      result = @org.mollie_swap_subscription(amount: 2500)
+
+      assert_not hook_called, "Hook should not fire when nothing changed"
+    end
+
+    test "mollie_swap_subscription finds pending subscriptions" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+      subscription.update!(status: "pending")
+
+      stub_mollie_subscription_update do
+        result = @org.mollie_swap_subscription(amount: 4999)
+        assert_equal subscription, result
+      end
+
+      assert_equal 4999, subscription.reload.amount
+    end
+
+    test "mollie_swap_subscription does not find suspended subscriptions" do
+      mollie_pay_subscriptions(:acme_monthly).update!(status: "suspended")
+
+      assert_raises(MolliePay::SubscriptionNotFound) do
+        @org.mollie_swap_subscription(amount: 4999)
+      end
+    end
+
     # === Idempotency keys ===
 
     test "mollie_pay_once sends idempotency key to Mollie" do

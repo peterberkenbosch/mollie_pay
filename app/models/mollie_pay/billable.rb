@@ -82,6 +82,38 @@ module MolliePay
       subscription.update!(status: "canceled", canceled_at: Time.current)
     end
 
+    def mollie_swap_subscription(name: "default", amount: nil, interval: nil)
+      subscription = mollie_subscriptions.where(status: Subscription::ACTIVE_STATUSES).named(name).first
+      raise MolliePay::SubscriptionNotFound, "No active subscription" unless subscription
+
+      params = {}
+      params[:amount]   = mollie_amount(amount) if amount && amount != subscription.amount
+      params[:interval] = interval              if interval && interval != subscription.interval
+      return subscription if params.empty?
+
+      previous_amount   = subscription.amount
+      previous_interval = subscription.interval
+
+      Mollie::Customer::Subscription.update(
+        subscription.mollie_id,
+        customer_id: mollie_customer.mollie_id,
+        **params
+      )
+
+      subscription.update!(
+        amount:   amount || subscription.amount,
+        interval: interval || subscription.interval
+      )
+
+      on_mollie_subscription_swapped(
+        subscription,
+        previous_amount: previous_amount,
+        previous_interval: previous_interval
+      )
+
+      subscription
+    end
+
     def mollie_update_payment(payment, description: nil, redirect_url: nil, metadata: nil)
       verify_payment_ownership!(payment)
 
@@ -161,6 +193,7 @@ module MolliePay
     def on_mollie_refund_processed(refund)          ; end
     def on_mollie_chargeback_received(chargeback)  ; end
     def on_mollie_chargeback_reversed(chargeback)  ; end
+    def on_mollie_subscription_swapped(subscription, previous_amount:, previous_interval:) ; end
 
     private
 
