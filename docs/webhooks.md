@@ -95,14 +95,91 @@ Webhook jobs are enqueued on the `:default` queue. Processing includes:
 - **Discard policy:** Mollie 404s and locally unknown subscription/refund IDs are discarded immediately
 - **Idempotency:** `record_from_mollie` uses `find_or_initialize_by` — safe to process the same webhook multiple times
 
+## Next-Gen Webhooks (beta)
+
+MolliePay also supports Mollie's **Next-Gen Webhooks** — event-based webhook
+subscriptions with HMAC-SHA256 signature verification. These are separate from
+classic webhooks and provide event types not available via the classic approach
+(e.g., `sales-invoice.paid`).
+
+### Endpoint
+
+```
+POST https://yourapp.com/mollie_pay/webhook_events
+```
+
+Register this URL in the Mollie Dashboard under Webhooks. Select the event
+types you want to receive.
+
+### Configuration
+
+```ruby
+MolliePay.configure do |config|
+  config.webhook_signing_secret = ENV["MOLLIE_WEBHOOK_SIGNING_SECRET"]
+end
+```
+
+The signing secret is displayed once when you create the webhook subscription
+in the Mollie Dashboard. Store it immediately — it cannot be retrieved later.
+
+If `webhook_signing_secret` is not configured, events are accepted without
+signature verification. **This is not recommended for production.**
+
+For secret rotation, pass an array:
+
+```ruby
+config.webhook_signing_secret = [
+  ENV["MOLLIE_WEBHOOK_SECRET_NEW"],
+  ENV["MOLLIE_WEBHOOK_SECRET_OLD"]
+]
+```
+
+### How it works
+
+```
+POST /mollie_pay/webhook_events     (from Mollie, with X-Mollie-Signature header)
+  → verify HMAC-SHA256 signature    (if signing secret configured)
+  → parse JSON event payload
+  → validate required fields (id, type)
+  → ProcessWebhookEventJob.perform_later(event)
+  → head :ok
+```
+
+### Event payload
+
+```json
+{
+  "resource": "event",
+  "id": "whe_xxx",
+  "type": "sales-invoice.paid",
+  "entityId": "invoice_xxx",
+  "createdAt": "2026-03-22T10:00:00+00:00",
+  "_embedded": {
+    "entity": { ... }
+  }
+}
+```
+
+### Classic vs Next-Gen coexistence
+
+Both endpoints are active simultaneously:
+
+| Endpoint | Payload | Verification | Events |
+|----------|---------|-------------|--------|
+| `POST /mollie_pay/webhooks` | Resource ID only | API key (implicit) | Payment, subscription, refund status changes |
+| `POST /mollie_pay/webhook_events` | Full event JSON | HMAC signature | Sales invoices, payment links, future types |
+
+Classic webhooks are **not** deprecated. Payment and subscription status changes
+are currently only available via classic webhooks.
+
 ## Rate limiting
 
-The webhook endpoint is publicly accessible by design. Consider rate limiting
-it at the infrastructure level:
+Both webhook endpoints are publicly accessible by design. Consider rate
+limiting them at the infrastructure level:
 
 ```ruby
 # config/initializers/rack_attack.rb
 Rack::Attack.throttle("mollie_webhooks", limit: 100, period: 60) do |req|
-  req.path == "/mollie_pay/webhooks" && req.post? && req.ip
+  (req.path == "/mollie_pay/webhooks" || req.path == "/mollie_pay/webhook_events") && req.post? && req.ip
 end
 ```

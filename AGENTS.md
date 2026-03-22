@@ -41,10 +41,12 @@ no views, one webhook endpoint, pure business logic.
 app/
   controllers/mollie_pay/
     application_controller.rb   # inherits ActionController::Base directly
-    webhooks_controller.rb      # create only
+    webhooks_controller.rb      # classic webhooks (create only)
+    webhook_events_controller.rb # next-gen webhooks with HMAC verification
   jobs/mollie_pay/
     application_job.rb
-    process_webhook_job.rb
+    process_webhook_job.rb      # classic webhook processing
+    process_webhook_event_job.rb # next-gen event processing
   models/mollie_pay/
     application_record.rb       # shared mollie_value_to_cents
     billable.rb                 # concern included by host app model
@@ -60,6 +62,7 @@ lib/
     engine.rb
     errors.rb
     version.rb
+    webhook_signature.rb    # HMAC-SHA256 verification for next-gen webhooks
   mollie_pay.rb
 ```
 
@@ -216,11 +219,21 @@ MolliePay.configure do |config|
   config.host                  = ENV["MOLLIE_HOST"]
   config.default_redirect_path = "/payments/:id"
   config.currency              = "EUR"
+  config.webhook_signing_secret = ENV["MOLLIE_WEBHOOK_SIGNING_SECRET"]
 end
 ```
 
 The engine initializer wires `api_key` to `Mollie::Client.configure`
 automatically. No separate Mollie SDK setup is needed.
+
+**Next-Gen Webhooks:** Set `webhook_signing_secret` to enable HMAC-SHA256
+verification for the `/webhook_events` endpoint. Accepts a string or an
+array of strings (for secret rotation). If not set, events are accepted
+without verification.
+
+**Note:** `ProcessWebhookEventJob` receives event data with **camelCase**
+string keys (e.g., `event["entityId"]`, not `event["entity_id"]`), unlike
+classic webhooks where the Mollie SDK converts to snake_case.
 
 ---
 

@@ -9,5 +9,16 @@ module MolliePay
         end
       end
     end
+
+    initializer "mollie_pay.warn_missing_webhook_secret", after: :finisher_hook do
+      config.after_initialize do
+        if MolliePay.configuration.webhook_signing_secrets.nil?
+          Rails.logger.warn(
+            "[MolliePay] webhook_signing_secret is not configured. " \
+            "Next-gen webhook events at /webhook_events will be accepted without signature verification."
+          )
+        end
+      end
+    end
   end
 end
