@@ -167,6 +167,30 @@ module MolliePay
       end
     end
 
+    test "sync_for_payment works with real Mollie SDK objects via WebMock" do
+      customer = mollie_pay_customers(:acme)
+      payment = mollie_pay_payments(:acme_oneoff)
+
+      hook_called_with = nil
+      owner = payment.customer.owner
+      owner.define_singleton_method(:on_mollie_chargeback_received) { |cb| hook_called_with = cb }
+
+      webmock_mollie_payment_get_with_chargebacks(payment.mollie_id, customer_id: customer.mollie_id) do
+        # Simulate what happens when Payment.record_from_mollie detects a chargeback
+        mollie_payment = Mollie::Payment.get(payment.mollie_id)
+        Chargeback.sync_for_payment(payment)
+      end
+
+      chargeback = Chargeback.find_by(mollie_id: "chb_ls7ahg")
+      assert_not_nil chargeback
+      assert_equal 1000, chargeback.amount
+      assert_equal "EUR", chargeback.currency
+      assert_equal payment, chargeback.payment
+      assert_not_nil chargeback.created_at_mollie
+      assert_not_nil hook_called_with
+      assert_equal chargeback, hook_called_with
+    end
+
     test "amount_decimal converts cents" do
       chargeback = mollie_pay_chargebacks(:acme_chargeback)
       assert_equal 5.0, chargeback.amount_decimal
@@ -180,12 +204,11 @@ module MolliePay
 
     private
 
-      def stub_mollie_chargeback(id:, amount_value:, amount_currency:, reason: nil, created_at: nil, reversed_at: nil)
+      def stub_mollie_chargeback(id:, amount_value:, amount_currency:, created_at: nil, reversed_at: nil)
         amount = OpenStruct.new(value: amount_value, currency: amount_currency)
         OpenStruct.new(
           id:          id,
           amount:      amount,
-          reason:      reason,
           created_at:  created_at,
           reversed_at: reversed_at
         )

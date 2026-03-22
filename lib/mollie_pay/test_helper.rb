@@ -250,6 +250,23 @@ module MolliePay
       WebMock.reset!
     end
 
+    # Stub GET /v2/payments/:id with embedded chargebacks for chargeback
+    # detection tests. Uses the payment_with_chargebacks fixture which
+    # includes _embedded.chargebacks matching the Mollie API structure.
+    #
+    #   webmock_mollie_payment_get_with_chargebacks("tr_abc123") do
+    #     MolliePay::ProcessWebhookJob.perform_now("tr_abc123")
+    #   end
+    #
+    def webmock_mollie_payment_get_with_chargebacks(payment_id, **overrides)
+      body = mollie_fixture("payment_with_chargebacks", id: payment_id, **overrides)
+      stub_request(:get, "#{MOLLIE_API_BASE}/payments/#{payment_id}")
+        .to_return(status: 200, body: body, headers: { "Content-Type" => "application/hal+json" })
+      yield
+    ensure
+      WebMock.reset!
+    end
+
     private
 
     # Load a JSON fixture file and merge in overrides.

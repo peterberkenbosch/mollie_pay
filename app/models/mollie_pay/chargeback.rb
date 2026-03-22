@@ -22,7 +22,6 @@ module MolliePay
           payment:           payment,
           amount:            mollie_value_to_cents(mc.amount),
           currency:          mc.amount.currency,
-          reason:            mc.reason&.to_s,
           created_at_mollie: mc.created_at,
           reversed_at:       mc.reversed_at
         )
