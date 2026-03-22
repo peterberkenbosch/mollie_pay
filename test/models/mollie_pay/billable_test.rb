@@ -605,6 +605,124 @@ module MolliePay
       end
     end
 
+    # === Payment update & cancel ===
+
+    test "mollie_update_payment calls Mollie API with provided params" do
+      payment = mollie_pay_payments(:acme_oneoff)
+      received_id = nil
+      received_params = nil
+      fake_update = ->(id, params) { received_id = id; received_params = params; OpenStruct.new }
+
+      Mollie::Payment.stub(:update, fake_update) do
+        @org.mollie_update_payment(payment, description: "Updated", metadata: { order: 42 })
+      end
+
+      assert_equal payment.mollie_id, received_id
+      assert_equal "Updated", received_params[:description]
+      assert_equal({ order: 42 }, received_params[:metadata])
+      assert_nil received_params[:redirectUrl]
+    end
+
+    test "mollie_update_payment only sends non-nil params" do
+      payment = mollie_pay_payments(:acme_oneoff)
+      received_params = nil
+      fake_update = ->(_, params) { received_params = params; OpenStruct.new }
+
+      Mollie::Payment.stub(:update, fake_update) do
+        @org.mollie_update_payment(payment, redirect_url: "https://example.com/new-return")
+      end
+
+      assert_equal({ redirectUrl: "https://example.com/new-return" }, received_params)
+    end
+
+    test "mollie_update_payment skips API call when no params provided" do
+      payment = mollie_pay_payments(:acme_oneoff)
+      api_called = false
+      fake_update = ->(_, _) { api_called = true; OpenStruct.new }
+
+      Mollie::Payment.stub(:update, fake_update) do
+        result = @org.mollie_update_payment(payment)
+        assert_equal payment, result
+      end
+
+      assert_not api_called, "Should not call Mollie API with empty params"
+    end
+
+    test "mollie_update_payment returns the payment" do
+      payment = mollie_pay_payments(:acme_oneoff)
+
+      Mollie::Payment.stub(:update, OpenStruct.new) do
+        result = @org.mollie_update_payment(payment, description: "Test")
+        assert_equal payment, result
+      end
+    end
+
+    test "mollie_update_payment raises for payment not belonging to this customer" do
+      other_org = Organization.create!(name: "Other Org", email: "other@org.nl")
+      other_customer = MolliePay::Customer.create!(mollie_id: "cst_other_upd", owner: other_org)
+      other_payment = MolliePay::Payment.create!(
+        customer: other_customer, mollie_id: "tr_other_upd",
+        status: "open", amount: 5000, currency: "EUR", sequence_type: "oneoff"
+      )
+
+      assert_raises(MolliePay::Error) do
+        @org.mollie_update_payment(other_payment, description: "Nope")
+      end
+    end
+
+    test "mollie_cancel_payment cancels a cancelable payment" do
+      payment = mollie_pay_payments(:acme_oneoff)
+      mollie_payment = OpenStruct.new(cancelable?: true)
+
+      Mollie::Payment.stub(:get, mollie_payment) do
+        Mollie::Payment.stub(:delete, nil) do
+          @org.mollie_cancel_payment(payment)
+        end
+      end
+
+      assert_equal "canceled", payment.reload.status
+      assert_not_nil payment.canceled_at
+    end
+
+    test "mollie_cancel_payment raises for non-cancelable payment" do
+      payment = mollie_pay_payments(:acme_first)
+      mollie_payment = OpenStruct.new(cancelable?: false)
+
+      Mollie::Payment.stub(:get, mollie_payment) do
+        assert_raises(MolliePay::PaymentNotCancelable) do
+          @org.mollie_cancel_payment(payment)
+        end
+      end
+    end
+
+    test "mollie_cancel_payment does not overwrite existing canceled_at" do
+      payment = mollie_pay_payments(:acme_oneoff)
+      original_time = 1.day.ago
+      payment.update!(status: "canceled", canceled_at: original_time)
+      mollie_payment = OpenStruct.new(cancelable?: true)
+
+      Mollie::Payment.stub(:get, mollie_payment) do
+        Mollie::Payment.stub(:delete, nil) do
+          @org.mollie_cancel_payment(payment)
+        end
+      end
+
+      assert_in_delta original_time, payment.reload.canceled_at, 1.second
+    end
+
+    test "mollie_cancel_payment raises for payment not belonging to this customer" do
+      other_org = Organization.create!(name: "Other Org", email: "other@org.nl")
+      other_customer = MolliePay::Customer.create!(mollie_id: "cst_other_can", owner: other_org)
+      other_payment = MolliePay::Payment.create!(
+        customer: other_customer, mollie_id: "tr_other_can",
+        status: "open", amount: 5000, currency: "EUR", sequence_type: "oneoff"
+      )
+
+      assert_raises(MolliePay::Error) do
+        @org.mollie_cancel_payment(other_payment)
+      end
+    end
+
     test "mollie_refund raises error for payment not belonging to this customer" do
       other_org = Organization.create!(name: "Other Org", email: "other@org.nl")
       other_customer = MolliePay::Customer.create!(mollie_id: "cst_other", owner: other_org)

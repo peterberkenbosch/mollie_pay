@@ -82,6 +82,30 @@ module MolliePay
       subscription.update!(status: "canceled", canceled_at: Time.current)
     end
 
+    def mollie_update_payment(payment, description: nil, redirect_url: nil, metadata: nil)
+      verify_payment_ownership!(payment)
+
+      params = {}
+      params[:description] = description  if description
+      params[:redirectUrl] = redirect_url if redirect_url
+      params[:metadata]    = metadata     if metadata
+      return payment if params.empty?
+
+      Mollie::Payment.update(payment.mollie_id, params)
+      payment
+    end
+
+    def mollie_cancel_payment(payment)
+      verify_payment_ownership!(payment)
+
+      mollie_payment = Mollie::Payment.get(payment.mollie_id)
+      raise MolliePay::PaymentNotCancelable, "Payment #{payment.mollie_id} is not cancelable" unless mollie_payment.cancelable?
+
+      Mollie::Payment.delete(payment.mollie_id)
+      payment.update!(status: "canceled", canceled_at: Time.current) unless payment.canceled_at
+      payment
+    end
+
     def mollie_refund(payment, amount: nil)
       verify_payment_ownership!(payment)
       amount_cents = amount || payment.amount
