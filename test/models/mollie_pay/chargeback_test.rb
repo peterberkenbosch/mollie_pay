@@ -187,7 +187,7 @@ module MolliePay
       assert_equal "EUR", chargeback.currency
       assert_equal payment, chargeback.payment
       assert_not_nil chargeback.created_at_mollie
-      assert_equal "Onvoldoende saldo (AM04)", chargeback.reason
+      assert_equal "Insufficient funds (AM04)", chargeback.reason
       assert_not_nil hook_called_with
       assert_equal chargeback, hook_called_with
     end

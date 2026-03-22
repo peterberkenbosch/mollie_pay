@@ -62,18 +62,19 @@ module MolliePay
 
     private
 
-      # The Mollie API returns reason and reasonCode on chargebacks, but the
-      # mollie-api-ruby SDK does not expose them via attr_accessor. Access
+      # The Mollie API returns reason as an object: {"code": "AM04", "description": "Insufficient funds"}
+      # The mollie-api-ruby SDK does not expose this via attr_accessor. Access
       # via the raw attributes hash instead.
       def self.extract_reason(mollie_chargeback)
-        attrs = mollie_chargeback.try(:attributes) || {}
-        reason      = attrs["reason"]
-        reason_code = attrs["reasonCode"] || attrs["reason_code"]
+        reason = (mollie_chargeback.try(:attributes) || {})["reason"]
+        return nil if reason.nil?
 
-        if reason && reason_code
-          "#{reason} (#{reason_code})"
+        if reason.is_a?(Hash)
+          description = reason["description"]
+          code        = reason["code"]
+          code ? "#{description} (#{code})" : description
         else
-          reason || reason_code
+          reason.to_s
         end
       end
   end
