@@ -180,6 +180,7 @@ Public methods:
 - `mollie_subscription(name: "default")`
 - `mollie_mandate`
 - `mollie_payments` → `has_many :through` association (supports `includes`, `joins`, etc.)
+- `mollie_payment_methods(**options)` → delegates to `MolliePay.payment_methods`
 
 **Named subscriptions:** All subscription methods accept `name:` with a default
 of `"default"`. This allows multiple concurrent subscriptions per customer

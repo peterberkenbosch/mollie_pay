@@ -117,6 +117,10 @@ module MolliePay
       mollie_mandates.valid_status.first
     end
 
+    def mollie_payment_methods(**options)
+      MolliePay.payment_methods(**options)
+    end
+
     # === Hooks — override these in your model ===
 
     def on_mollie_payment_paid(payment)             ; end

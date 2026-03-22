@@ -9,6 +9,7 @@
 | `mollie_pay_subscriptions` | `mollie_id`, `status`, `amount`, `interval` | Recurring billing agreements |
 | `mollie_pay_payments` | `mollie_id`, `status`, `amount`, `sequence_type` | Individual payment records |
 | `mollie_pay_refunds` | `mollie_id`, `status`, `amount` | Refunds against payments |
+| `mollie_pay_chargebacks` | `mollie_id`, `amount`, `reason` | Chargebacks against payments |
 
 Only fields needed for business logic and state queries are stored locally.
 Display data lives in Mollie and is fetched via `mollie_record`.
@@ -19,7 +20,8 @@ Display data lives in Mollie and is fetched via `mollie_record`.
 Owner (your model)
   └── Customer (1:1, polymorphic)
         ├── Payments (1:N)
-        │     └── Refunds (1:N)
+        │     ├── Refunds (1:N)
+        │     └── Chargebacks (1:N)
         ├── Subscriptions (1:N)
         │     └── Payments (1:N, optional)
         └── Mandates (1:N)
@@ -95,6 +97,66 @@ payment.mollie_amount   # => { currency: "EUR", value: "25.00" } (Mollie format)
 ```
 
 The same methods are available on `Subscription` and `Refund`.
+
+## Payment methods
+
+List available payment methods from the Mollie API. These are fetched live —
+no local model or migration is involved.
+
+```ruby
+MolliePay.payment_methods                                   # all enabled methods
+MolliePay.payment_methods(amount: 1000)                     # filtered by amount (cents)
+MolliePay.payment_methods(amount: 1000, currency: "USD")    # with currency override
+MolliePay.payment_methods(locale: "nl_NL")                  # localized descriptions
+MolliePay.payment_methods(include: "pricing")               # include pricing details
+
+MolliePay.payment_method("ideal")                           # single method details
+MolliePay.payment_method("creditcard", locale: "nl_NL")     # with locale
+```
+
+A convenience method is available on Billable:
+
+```ruby
+organization.mollie_payment_methods(amount: 2500, locale: "nl_NL")
+```
+
+Both return Mollie SDK objects (`Mollie::Method`) with `id`, `description`,
+`minimum_amount`, `maximum_amount`, `image`, and `status`.
+
+### Caching
+
+Payment methods rarely change. Cache them in your host app to avoid hitting
+the Mollie API on every checkout page load:
+
+```ruby
+# app/models/organization.rb
+def available_payment_methods(amount: nil)
+  cache_key = ["mollie_payment_methods", amount, MolliePay.configuration.currency]
+  Rails.cache.fetch(cache_key, expires_in: 1.hour) do
+    mollie_payment_methods(amount: amount).map do |method|
+      {
+        id:          method.id,
+        description: method.description,
+        image:       method.image["svg"],
+        status:      method.status
+      }
+    end
+  end
+end
+```
+
+> **Important:** Cache the serialized data (hashes/arrays), not the
+> `Mollie::Method` objects themselves. SDK objects hold network references
+> and are not safe for cache serialization.
+
+**Cache invalidation tips:**
+
+- Use `expires_in: 1.hour` — methods change infrequently, but Mollie can
+  enable/disable methods at any time
+- Include `amount` in the cache key if you filter by amount, since different
+  amounts may yield different available methods
+- Bust the cache manually when you change payment method settings in the
+  Mollie dashboard: `Rails.cache.delete_matched("mollie_payment_methods*")`
 
 ## Errors
 
