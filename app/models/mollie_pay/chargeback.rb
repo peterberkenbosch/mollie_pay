@@ -22,6 +22,7 @@ module MolliePay
           payment:           payment,
           amount:            mollie_value_to_cents(mc.amount),
           currency:          mc.amount.currency,
+          reason:            extract_reason(mc),
           created_at_mollie: mc.created_at,
           reversed_at:       mc.reversed_at
         )
@@ -58,5 +59,22 @@ module MolliePay
     def mollie_amount
       { currency: currency, value: format("%.2f", amount_decimal) }
     end
+
+    private
+
+      # The Mollie API returns reason and reasonCode on chargebacks, but the
+      # mollie-api-ruby SDK does not expose them via attr_accessor. Access
+      # via the raw attributes hash instead.
+      def self.extract_reason(mollie_chargeback)
+        attrs = mollie_chargeback.try(:attributes) || {}
+        reason      = attrs["reason"]
+        reason_code = attrs["reasonCode"] || attrs["reason_code"]
+
+        if reason && reason_code
+          "#{reason} (#{reason_code})"
+        else
+          reason || reason_code
+        end
+      end
   end
 end
