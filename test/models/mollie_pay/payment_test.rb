@@ -156,12 +156,14 @@ module MolliePay
         amount_charged_back: OpenStruct.new(value: "5.00", currency: "EUR")
       )
 
-      payment = Payment.record_from_mollie(mollie_payment)
+      Chargeback.stub(:sync_for_payment, nil) do
+        payment = Payment.record_from_mollie(mollie_payment)
 
-      assert_equal 1000, payment.amount_refunded
-      assert_equal 9000, payment.amount_remaining
-      assert_equal 10000, payment.amount_captured
-      assert_equal 500, payment.amount_charged_back
+        assert_equal 1000, payment.amount_refunded
+        assert_equal 9000, payment.amount_remaining
+        assert_equal 10000, payment.amount_captured
+        assert_equal 500, payment.amount_charged_back
+      end
     end
 
     test "record_from_mollie preserves amount tracking when Mollie omits fields" do
@@ -183,6 +185,51 @@ module MolliePay
       assert_nil existing.amount_remaining
       assert_equal 0, existing.amount_captured
       assert_equal 0, existing.amount_charged_back
+    end
+
+    test "record_from_mollie triggers chargeback sync when amount_charged_back changes" do
+      customer = mollie_pay_customers(:acme)
+      existing = mollie_pay_payments(:acme_first)
+      assert_equal 0, existing.amount_charged_back
+
+      mollie_payment = stub_mollie_payment(
+        id:                  existing.mollie_id,
+        status:              "paid",
+        customer_id:         customer.mollie_id,
+        sequence_type:       "first",
+        amount_value:        "10.00",
+        amount_currency:     "EUR",
+        amount_charged_back: OpenStruct.new(value: "5.00", currency: "EUR")
+      )
+
+      sync_called = false
+      Chargeback.stub(:sync_for_payment, ->(_payment) { sync_called = true }) do
+        Payment.record_from_mollie(mollie_payment)
+      end
+
+      assert sync_called, "Chargeback.sync_for_payment should be called when amount_charged_back changes"
+      assert_equal 500, existing.reload.amount_charged_back
+    end
+
+    test "record_from_mollie does not trigger chargeback sync when amount_charged_back unchanged" do
+      customer = mollie_pay_customers(:acme)
+      existing = mollie_pay_payments(:acme_first)
+
+      mollie_payment = stub_mollie_payment(
+        id:              existing.mollie_id,
+        status:          "paid",
+        customer_id:     customer.mollie_id,
+        sequence_type:   "first",
+        amount_value:    "10.00",
+        amount_currency: "EUR"
+      )
+
+      sync_called = false
+      Chargeback.stub(:sync_for_payment, ->(_payment) { sync_called = true }) do
+        Payment.record_from_mollie(mollie_payment)
+      end
+
+      assert_not sync_called, "Chargeback.sync_for_payment should not be called when amount_charged_back is unchanged"
     end
 
     test "record_from_mollie skips notify_billable when status unchanged" do

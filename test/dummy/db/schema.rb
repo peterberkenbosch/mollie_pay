@@ -10,7 +10,21 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_18_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_21_000001) do
+  create_table "mollie_pay_chargebacks", force: :cascade do |t|
+    t.integer "amount", null: false
+    t.datetime "created_at", null: false
+    t.datetime "created_at_mollie"
+    t.string "currency", default: "EUR", null: false
+    t.string "mollie_id", null: false
+    t.integer "payment_id", null: false
+    t.string "reason"
+    t.datetime "reversed_at"
+    t.datetime "updated_at", null: false
+    t.index ["mollie_id"], name: "index_mollie_pay_chargebacks_on_mollie_id", unique: true
+    t.index ["payment_id"], name: "index_mollie_pay_chargebacks_on_payment_id"
+  end
+
   create_table "mollie_pay_customers", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "mollie_id", null: false
@@ -97,6 +111,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_120000) do
     t.datetime "updated_at", null: false
   end
 
+  add_foreign_key "mollie_pay_chargebacks", "mollie_pay_payments", column: "payment_id"
   add_foreign_key "mollie_pay_mandates", "mollie_pay_customers", column: "customer_id"
   add_foreign_key "mollie_pay_payments", "mollie_pay_customers", column: "customer_id"
   add_foreign_key "mollie_pay_payments", "mollie_pay_subscriptions", column: "subscription_id"

@@ -131,6 +131,8 @@ module MolliePay
     def on_mollie_subscription_completed(subscription); end
     def on_mollie_mandate_created(mandate)          ; end
     def on_mollie_refund_processed(refund)          ; end
+    def on_mollie_chargeback_received(chargeback)  ; end
+    def on_mollie_chargeback_reversed(chargeback)  ; end
 
     private
 
