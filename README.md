@@ -1,10 +1,11 @@
 # MolliePay
 
 A mountable Rails engine for Mollie payments in SaaS applications. Handles
-customers, mandates, subscriptions, one-off payments, refunds and webhooks.
-You write the business logic; MolliePay handles the Mollie plumbing.
+customers, mandates, subscriptions, one-off payments, refunds, chargebacks
+and webhooks. You write the business logic; MolliePay handles the Mollie
+plumbing.
 
-Rails 8+, Mollie-native.
+Rails 8.1+, Mollie-native.
 
 ## Philosophy
 
@@ -12,7 +13,7 @@ Rails 8+, Mollie-native.
 - **Lean data model.** Only business-critical fields are stored locally. Everything else is fetched from Mollie on demand via `record.mollie_record`.
 - **Hooks, not events.** Override plain Ruby methods in your model. No event bus, no pub/sub, no callbacks to register.
 - **Boring Rails.** Models do the work. No service objects, no form objects, no interactors.
-- **Idempotent.** Hooks fire only on actual status transitions. Duplicate webhooks are handled safely.
+- **Idempotent.** Hooks fire only on actual state transitions. Duplicate webhooks are handled safely.
 - **Cents, not floats.** All amounts are stored as integers (cents). Conversion happens only at the Mollie API boundary.
 
 ## Installation
@@ -90,12 +91,33 @@ payment = current_organization.mollie_pay_once(
 redirect_to payment.checkout_url
 ```
 
-### Cancel and refund
+### Upgrade or downgrade
+
+```ruby
+current_organization.mollie_swap_subscription(amount: 4999)
+current_organization.mollie_swap_subscription(amount: 4999, interval: "1 year")
+current_organization.mollie_swap_subscription(name: "analytics_addon", amount: 1999)
+```
+
+Changes take effect on the next billing cycle. See [docs/api.md](docs/api.md)
+for proration guidance.
+
+### Cancel, update, and refund
 
 ```ruby
 current_organization.mollie_cancel_subscription
+current_organization.mollie_cancel_payment(payment)
+current_organization.mollie_update_payment(payment, description: "Updated")
 current_organization.mollie_refund(payment)              # full
 current_organization.mollie_refund(payment, amount: 500) # partial
+```
+
+### Payment methods
+
+```ruby
+MolliePay.payment_methods                        # all enabled methods
+MolliePay.payment_methods(amount: 1000)          # filtered by amount (cents)
+MolliePay.payment_method("ideal")                # single method details
 ```
 
 ### Query state
@@ -113,9 +135,10 @@ org.mollie_payments.paid    # ActiveRecord relation
 Point Mollie to `POST https://yourapp.com/mollie_pay/webhooks`. MolliePay
 validates the ID, enqueues a background job, and responds `200 OK` immediately.
 The job fetches the current state from Mollie and upserts the local record.
+Chargebacks are detected automatically via payment amount comparison.
 
 See [docs/webhooks.md](docs/webhooks.md) for details on verification,
-idempotency, Active Job configuration, and rate limiting.
+idempotency, chargeback detection, Active Job configuration, and rate limiting.
 
 ## Reacting to events
 
@@ -144,15 +167,25 @@ class Organization < ApplicationRecord
   def on_mollie_refund_processed(refund)
     # Refund completed
   end
+
+  def on_mollie_chargeback_received(chargeback)
+    # Chargeback filed — take action
+  end
+
+  def on_mollie_subscription_swapped(subscription, previous_amount:, previous_interval:)
+    # Plan changed — calculate proration if needed
+  end
 end
 ```
 
-All hooks: `on_mollie_payment_paid`, `on_mollie_payment_failed`,
-`on_mollie_payment_canceled`, `on_mollie_payment_expired`,
-`on_mollie_first_payment_paid`, `on_mollie_subscription_charged`,
-`on_mollie_subscription_canceled`, `on_mollie_subscription_suspended`,
-`on_mollie_subscription_completed`, `on_mollie_mandate_created`,
-`on_mollie_refund_processed`.
+All hooks: `on_mollie_payment_paid`, `on_mollie_payment_authorized`,
+`on_mollie_payment_failed`, `on_mollie_payment_canceled`,
+`on_mollie_payment_expired`, `on_mollie_first_payment_paid`,
+`on_mollie_subscription_charged`, `on_mollie_subscription_canceled`,
+`on_mollie_subscription_suspended`, `on_mollie_subscription_completed`,
+`on_mollie_mandate_created`, `on_mollie_refund_processed`,
+`on_mollie_chargeback_received`, `on_mollie_chargeback_reversed`,
+`on_mollie_subscription_swapped`.
 
 ## Testing
 
@@ -178,14 +211,14 @@ See [docs/testing.md](docs/testing.md) for the full helper reference.
 
 - [Tutorial](docs/tutorial.md) — step-by-step guide
 - [API Reference](docs/api.md) — data model, statuses, scopes, errors, configuration
-- [Webhooks](docs/webhooks.md) — webhook flow, idempotency, Active Job
+- [Webhooks](docs/webhooks.md) — webhook flow, chargeback detection, idempotency, Active Job
 - [Testing](docs/testing.md) — stub helpers and WebMock helpers
 - [Releasing](docs/RELEASING.md) — release process
 
 ## Requirements
 
 - Ruby 3.2+
-- Rails 8.0+
+- Rails 8.1+
 - Active Job (any queue adapter)
 - A [Mollie](https://my.mollie.com/dashboard/signup/7878281?lang=nl) account and API key
 

@@ -16,7 +16,7 @@ pages and webhook processing.
 
 **Prerequisites:**
 
-- Ruby 3.2+ and Rails 8.0+
+- Ruby 3.2+ and Rails 8.1+
 - A [Mollie account](https://my.mollie.com/dashboard/signup/7878281?lang=nl) (free to create)
 - A Mollie **test** API key (starts with `test_`)
 - [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) or [ngrok](https://ngrok.com) for webhook tunneling
