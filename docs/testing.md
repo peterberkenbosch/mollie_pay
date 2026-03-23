@@ -94,6 +94,7 @@ All IDs default to random values (`tr_test<hex>`, etc.) when not specified.
 | `stub_mollie_customer_and_payment_create` | `Mollie::Customer.create` + `Mollie::Payment.create` | Both with random IDs |
 | `stub_mollie_subscription_create` | `Mollie::Customer::Subscription.create` | `status: "active"`, random ID |
 | `stub_mollie_subscription_cancel` | `Mollie::Customer::Subscription.cancel` | Returns nil |
+| `stub_mollie_subscription_update` | `Mollie::Customer::Subscription.update` | `status: "active"`, random ID |
 | `stub_mollie_refund_create` | `Mollie::Refund.create` | `status: "queued"`, random ID |
 
 ## WebMock-based API stubs
@@ -143,6 +144,7 @@ end
 | `webmock_mollie_subscription_cancel` | `DELETE /v2/subscriptions/:id` | 204 No Content |
 | `webmock_mollie_refund_create` | `POST /v2/refunds` | Queued refund JSON |
 | `webmock_mollie_payment_get` | `GET /v2/payments/:id` | Payment JSON (for webhook tests) |
+| `webmock_mollie_payment_get_with_chargebacks` | `GET /v2/payments/:id` | Payment JSON with embedded chargebacks |
 
 **When to use which:** Method-level stubs (`stub_mollie_*`) are faster and
 simpler — use them for unit tests. WebMock stubs (`webmock_mollie_*`) exercise
