@@ -44,6 +44,9 @@ class Mollie::SalesInvoiceTest < ActiveSupport::TestCase
     assert_instance_of Mollie::Amount, invoice.subtotal_amount
     assert_equal BigDecimal("89.00"), invoice.subtotal_amount.value
 
+    assert_instance_of Mollie::Amount, invoice.discounted_subtotal_amount
+    assert_equal BigDecimal("89.00"), invoice.discounted_subtotal_amount.value
+
     assert_instance_of Mollie::Amount, invoice.total_vat_amount
     assert_equal BigDecimal("18.69"), invoice.total_vat_amount.value
 
@@ -54,13 +57,18 @@ class Mollie::SalesInvoiceTest < ActiveSupport::TestCase
     assert_equal BigDecimal("107.69"), invoice.amount_due.value
   end
 
-  test "timestamp fields are parsed to Time" do
+  test "timestamp fields are parsed to Time with correct values" do
     invoice = Mollie::SalesInvoice.new(api_response_hash)
 
-    assert_instance_of Time, invoice.created_at
-    assert_instance_of Time, invoice.issued_at
-    assert_instance_of Time, invoice.due_at
+    assert_equal Time.parse("2026-03-26T10:00:00+00:00"), invoice.created_at
+    assert_equal Time.parse("2026-03-26T10:00:00+00:00"), invoice.issued_at
+    assert_equal Time.parse("2026-04-25T10:00:00+00:00"), invoice.due_at
     assert_nil invoice.paid_at
+  end
+
+  test "timestamp setters return nil for unparseable values" do
+    invoice = Mollie::SalesInvoice.new("created_at" => "not-a-date")
+    assert_nil invoice.created_at
   end
 
   test "recipient is converted to OpenStruct" do
@@ -133,6 +141,7 @@ class Mollie::SalesInvoiceTest < ActiveSupport::TestCase
         "memo" => "Thank you!",
         "is_e_invoice" => false,
         "subtotal_amount" => { "currency" => "EUR", "value" => "89.00" },
+        "discounted_subtotal_amount" => { "currency" => "EUR", "value" => "89.00" },
         "total_vat_amount" => { "currency" => "EUR", "value" => "18.69" },
         "total_amount" => { "currency" => "EUR", "value" => "107.69" },
         "amount_due" => { "currency" => "EUR", "value" => "107.69" },

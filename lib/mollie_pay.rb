@@ -76,7 +76,7 @@ module MolliePay
   #   MolliePay.update_sales_invoice("invoice_abc123", memo: "Updated memo")
   #
   def self.update_sales_invoice(id, **attrs)
-    params = deep_camelize_keys(attrs)
+    params = deep_camelize_keys(attrs.except(:recipient, :lines))
     params[:recipient] = deep_camelize_keys(attrs[:recipient]) if attrs[:recipient]
     params[:lines] = attrs[:lines].map { |line| build_sales_invoice_line(line) } if attrs[:lines]
     Mollie::SalesInvoice.update(id, params)

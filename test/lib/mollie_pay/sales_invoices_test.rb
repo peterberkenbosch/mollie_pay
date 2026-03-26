@@ -128,11 +128,12 @@ class MolliePay::SalesInvoicesTest < ActiveSupport::TestCase
     fake_update = ->(id, data) { called_with_id = id; called_with_data = data; fake_invoice }
 
     Mollie::SalesInvoice.stub(:update, fake_update) do
-      MolliePay.update_sales_invoice("invoice_abc123", memo: "Updated")
+      MolliePay.update_sales_invoice("invoice_abc123", memo: "Updated", payment_term: "14 days")
     end
 
     assert_equal "invoice_abc123", called_with_id
     assert_equal "Updated", called_with_data[:memo]
+    assert_equal "14 days", called_with_data[:paymentTerm]
   end
 
   test "update_sales_invoice camelizes nested recipient" do

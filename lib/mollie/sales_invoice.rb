@@ -84,7 +84,7 @@ module Mollie
     def created_at=(value)
       @created_at = begin
                       Time.parse(value.to_s)
-                    rescue StandardError
+                    rescue ArgumentError
                       nil
                     end
     end
@@ -92,7 +92,7 @@ module Mollie
     def issued_at=(value)
       @issued_at = begin
                      Time.parse(value.to_s)
-                   rescue StandardError
+                   rescue ArgumentError
                      nil
                    end
     end
@@ -100,7 +100,7 @@ module Mollie
     def paid_at=(value)
       @paid_at = begin
                    Time.parse(value.to_s)
-                 rescue StandardError
+                 rescue ArgumentError
                    nil
                  end
     end
@@ -108,7 +108,7 @@ module Mollie
     def due_at=(value)
       @due_at = begin
                   Time.parse(value.to_s)
-                rescue StandardError
+                rescue ArgumentError
                   nil
                 end
     end
