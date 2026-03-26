@@ -1,0 +1,16 @@
+acme_draft:
+  customer: acme
+  mollie_id: invoice_draft123
+  status: draft
+
+acme_issued:
+  customer: acme
+  mollie_id: invoice_issued456
+  status: issued
+  invoice_number: INV-0000001
+  amount: 10769
+  currency: EUR
+  recipient_identifier: cust-xyz
+  memo: Thank you
+  issued_at: 2026-03-01 12:00:00
+  due_at: 2026-03-31 12:00:00

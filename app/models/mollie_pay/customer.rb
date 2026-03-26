@@ -2,9 +2,10 @@ module MolliePay
   class Customer < ApplicationRecord
     belongs_to :owner, polymorphic: true
 
-    has_many :payments,      dependent: :destroy
-    has_many :subscriptions, dependent: :destroy
-    has_many :mandates,      dependent: :destroy
+    has_many :payments,       dependent: :destroy
+    has_many :subscriptions,  dependent: :destroy
+    has_many :mandates,       dependent: :destroy
+    has_many :sales_invoices, dependent: :destroy
 
     validates :mollie_id, presence: true, uniqueness: true
 

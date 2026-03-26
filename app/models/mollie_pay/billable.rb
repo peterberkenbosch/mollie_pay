@@ -258,6 +258,8 @@ module MolliePay
     def on_mollie_chargeback_received(chargeback)  ; end
     def on_mollie_chargeback_reversed(chargeback)  ; end
     def on_mollie_subscription_swapped(subscription, previous_amount:, previous_interval:) ; end
+    def on_mollie_sales_invoice_issued(sales_invoice) ; end
+    def on_mollie_sales_invoice_paid(sales_invoice)   ; end
 
     private
 
