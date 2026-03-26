@@ -102,6 +102,38 @@ current_organization.mollie_swap_subscription(name: "analytics_addon", amount: 1
 Changes take effect on the next billing cycle. See [docs/api.md](docs/api.md)
 for proration guidance.
 
+### Mandates
+
+Create SEPA Direct Debit mandates directly (for mandate migrations or
+pre-existing bank relationships):
+
+```ruby
+mandate = current_organization.mollie_create_mandate(
+  method: "directdebit",
+  consumer_name: "Jane Doe",
+  consumer_account: "NL55INGB0000000000",
+  signature_date: Date.today
+)
+```
+
+> **Important:** Direct mandate creation requires prior customer authorization.
+> See [docs/mandates.md](docs/mandates.md) for SEPA compliance requirements.
+> For most applications, use `mollie_pay_first` instead — Mollie's checkout
+> handles consent and bank authentication automatically.
+
+Revoke a mandate:
+
+```ruby
+current_organization.mollie_revoke_mandate(mandate)
+```
+
+### Customer management
+
+```ruby
+current_organization.mollie_update_customer(name: "New Name", email: "new@example.com")
+current_organization.mollie_delete_customer  # cascades to all local records
+```
+
 ### Cancel, update, and refund
 
 ```ruby
@@ -250,6 +282,7 @@ See [docs/testing.md](docs/testing.md) for the full helper reference.
 - [Tutorial](docs/tutorial.md) — step-by-step guide
 - [API Reference](docs/api.md) — data model, statuses, scopes, errors, configuration
 - [Webhooks](docs/webhooks.md) — webhook flow, chargeback detection, idempotency, Active Job
+- [Mandates](docs/mandates.md) — SEPA DD mandate consent, compliance, web signature collection
 - [Testing](docs/testing.md) — stub helpers and WebMock helpers
 - [Releasing](docs/RELEASING.md) — release process
 
