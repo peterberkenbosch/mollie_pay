@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_21_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_26_000002) do
   create_table "mollie_pay_chargebacks", force: :cascade do |t|
     t.integer "amount", null: false
     t.datetime "created_at", null: false
@@ -87,6 +87,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_21_000001) do
     t.index ["payment_id"], name: "index_mollie_pay_refunds_on_payment_id"
   end
 
+  create_table "mollie_pay_sales_invoices", force: :cascade do |t|
+    t.integer "amount"
+    t.datetime "created_at", null: false
+    t.string "currency"
+    t.integer "customer_id", null: false
+    t.datetime "due_at"
+    t.string "invoice_number"
+    t.datetime "issued_at"
+    t.text "memo"
+    t.string "mollie_id", null: false
+    t.datetime "paid_at"
+    t.string "recipient_identifier"
+    t.string "status", default: "draft", null: false
+    t.datetime "updated_at", null: false
+    t.index ["customer_id"], name: "index_mollie_pay_sales_invoices_on_customer_id"
+    t.index ["mollie_id"], name: "index_mollie_pay_sales_invoices_on_mollie_id", unique: true
+  end
+
   create_table "mollie_pay_subscriptions", force: :cascade do |t|
     t.integer "amount", null: false
     t.datetime "canceled_at"
@@ -116,5 +134,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_21_000001) do
   add_foreign_key "mollie_pay_payments", "mollie_pay_customers", column: "customer_id"
   add_foreign_key "mollie_pay_payments", "mollie_pay_subscriptions", column: "subscription_id"
   add_foreign_key "mollie_pay_refunds", "mollie_pay_payments", column: "payment_id"
+  add_foreign_key "mollie_pay_sales_invoices", "mollie_pay_customers", column: "customer_id"
   add_foreign_key "mollie_pay_subscriptions", "mollie_pay_customers", column: "customer_id"
 end
