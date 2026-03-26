@@ -110,6 +110,38 @@ module MolliePay
       Mollie::Refund.stub(:create, response, &block)
     end
 
+    # ── Next-Gen Webhook Event helpers ──────────────────────────────
+    #
+    # Post a signed next-gen webhook event to the engine's webhook_events
+    # endpoint. Generates a valid HMAC-SHA256 signature using the provided
+    # secret (or the test default).
+    #
+    #   MolliePay.configuration.webhook_signing_secret = WEBHOOK_TEST_SECRET
+    #   post_signed_webhook_event(event_type: "sales-invoice.paid", entity_id: "invoice_xxx")
+    #   assert_response :ok
+    #
+    # Pass `secret: nil` to omit the signature header (for testing unsigned events).
+    #
+    WEBHOOK_TEST_SECRET = "test_whsec_000000000000000000000000".freeze
+
+    def post_signed_webhook_event(event_type:, entity_id:, secret: WEBHOOK_TEST_SECRET)
+      payload = {
+        resource: "event",
+        id: "whe_test#{SecureRandom.hex(8)}",
+        type: event_type,
+        entityId: entity_id,
+        createdAt: Time.current.iso8601
+      }.to_json
+
+      headers = { "CONTENT_TYPE" => "application/json" }
+      if secret
+        signature = "sha256=#{OpenSSL::HMAC.hexdigest('SHA256', secret, payload)}"
+        headers["HTTP_X_MOLLIE_SIGNATURE"] = signature
+      end
+
+      post mollie_pay.webhook_events_path, params: payload, headers: headers
+    end
+
     # Build a fake Mollie payment response (OpenStruct).
     def fake_mollie_payment(id: nil, status: "open", checkout_url: nil)
       id           ||= "tr_test#{SecureRandom.hex(4)}"

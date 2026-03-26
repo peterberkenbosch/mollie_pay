@@ -6,6 +6,7 @@ module MolliePay
     attr_accessor :host
     attr_accessor :default_redirect_path
     attr_accessor :currency
+    attr_accessor :webhook_signing_secret
 
     def initialize
       @currency = "EUR"
@@ -25,6 +26,14 @@ module MolliePay
 
       path = default_redirect_path.gsub(":id", payment.id.to_s)
       "#{host_without_trailing_slash}#{path}"
+    end
+
+    # Returns nil (not configured) or a non-empty array of secrets.
+    # Treats nil, "", and [] as "not configured" to prevent silent rejection
+    # when an empty array is passed.
+    def webhook_signing_secrets
+      secrets = Array(webhook_signing_secret).reject(&:blank?)
+      secrets.empty? ? nil : secrets
     end
 
     def inspect
