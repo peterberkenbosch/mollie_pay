@@ -98,6 +98,26 @@ module MolliePay
       Mollie::Customer::Subscription.stub(:update, response, &block)
     end
 
+    # Stub Mollie::Customer.update.
+    #
+    #   stub_mollie_customer_update do
+    #     @org.mollie_update_customer(name: "New Name")
+    #   end
+    #
+    def stub_mollie_customer_update(&block)
+      Mollie::Customer.stub(:update, OpenStruct.new, &block)
+    end
+
+    # Stub Mollie::Customer.delete.
+    #
+    #   stub_mollie_customer_delete do
+    #     @org.mollie_delete_customer
+    #   end
+    #
+    def stub_mollie_customer_delete(&block)
+      Mollie::Customer.stub(:delete, nil, &block)
+    end
+
     # Stub Mollie::Refund.create.
     #
     #   stub_mollie_refund_create do
