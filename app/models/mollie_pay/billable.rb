@@ -61,6 +61,34 @@ module MolliePay
       create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type: "first")
     end
 
+    # === Mandates ===
+
+    def mollie_create_mandate(method:, consumer_name:, consumer_account:, **options)
+      customer = mollie_customer!
+
+      mollie_mandate = Mollie::Customer::Mandate.create(
+        customer_id:     customer.mollie_id,
+        method:          method,
+        consumerName:    consumer_name,
+        consumerAccount: consumer_account,
+        **options,
+        idempotency_key: SecureRandom.uuid
+      )
+
+      Mandate.record_from_mollie_mandate(mollie_mandate, customer)
+    end
+
+    def mollie_revoke_mandate(mandate)
+      Mollie::Customer::Mandate.delete(
+        mandate.mollie_id,
+        customer_id: mollie_customer.mollie_id
+      )
+      mandate.update!(status: "invalid")
+      mandate
+    end
+
+    # === Subscriptions ===
+
     def mollie_subscribe(amount:, interval:, description:, start_date: nil, name: "default")
       raise MolliePay::MandateRequired, "No valid mandate on file" unless mollie_mandated?
 

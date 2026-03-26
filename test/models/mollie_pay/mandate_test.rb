@@ -22,6 +22,39 @@ module MolliePay
       assert_not mandate.valid?
     end
 
+    test "record_from_mollie_mandate creates new mandate from Mollie object" do
+      customer = mollie_pay_customers(:acme)
+      mollie_mandate = OpenStruct.new(
+        id:     "mdt_brand_new",
+        status: "valid",
+        method: "directdebit"
+      )
+
+      mandate = Mandate.record_from_mollie_mandate(mollie_mandate, customer)
+
+      assert_equal "mdt_brand_new", mandate.mollie_id
+      assert_equal "valid", mandate.status
+      assert_equal "directdebit", mandate.method
+      assert_equal customer, mandate.customer
+      assert_not_nil mandate.mandated_at
+    end
+
+    test "record_from_mollie_mandate updates existing mandate" do
+      existing = mollie_pay_mandates(:acme_mandate)
+      customer = existing.customer
+      mollie_mandate = OpenStruct.new(
+        id:     existing.mollie_id,
+        status: "invalid",
+        method: "creditcard"
+      )
+
+      mandate = Mandate.record_from_mollie_mandate(mollie_mandate, customer)
+
+      assert_equal existing.id, mandate.id
+      assert_equal "invalid", mandate.status
+      assert_equal "creditcard", mandate.method
+    end
+
     test "record_from_mollie_payment creates mandate from first payment" do
       payment = mollie_pay_payments(:acme_first)
 

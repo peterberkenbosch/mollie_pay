@@ -118,6 +118,31 @@ module MolliePay
       Mollie::Customer.stub(:delete, nil, &block)
     end
 
+    # Stub Mollie::Customer::Mandate.create.
+    #
+    #   stub_mollie_mandate_create do
+    #     mandate = @user.mollie_create_mandate(
+    #       method: "directdebit", consumer_name: "John Doe",
+    #       consumer_account: "NL55INGB0000000000"
+    #     )
+    #     assert_equal "valid", mandate.status
+    #   end
+    #
+    def stub_mollie_mandate_create(**overrides, &block)
+      response = fake_mollie_mandate(**overrides)
+      Mollie::Customer::Mandate.stub(:create, response, &block)
+    end
+
+    # Stub Mollie::Customer::Mandate.delete.
+    #
+    #   stub_mollie_mandate_revoke do
+    #     @user.mollie_revoke_mandate(mandate)
+    #   end
+    #
+    def stub_mollie_mandate_revoke(&block)
+      Mollie::Customer::Mandate.stub(:delete, nil, &block)
+    end
+
     # Stub Mollie::Refund.create.
     #
     #   stub_mollie_refund_create do
@@ -174,6 +199,12 @@ module MolliePay
     def fake_mollie_customer(id: nil)
       id ||= "cst_test#{SecureRandom.hex(4)}"
       OpenStruct.new(id: id)
+    end
+
+    # Build a fake Mollie mandate response (OpenStruct).
+    def fake_mollie_mandate(id: nil, status: "valid", method: "directdebit")
+      id ||= "mdt_test#{SecureRandom.hex(4)}"
+      OpenStruct.new(id: id, status: status, method: method)
     end
 
     # Build a fake Mollie subscription response (OpenStruct).
