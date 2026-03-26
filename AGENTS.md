@@ -186,6 +186,13 @@ Public methods:
 - `mollie_subscription(name: "default")`
 - `mollie_mandate`
 - `mollie_payments` → `has_many :through` association (supports `includes`, `joins`, etc.)
+- `mollie_create_sales_invoice(lines:, status: "draft", recipient: nil, **options)` → creates sales invoice on Mollie (beta)
+- `mollie_sales_invoices(**options)` → lists sales invoices from Mollie
+- `mollie_sales_invoice(id)` → gets single sales invoice from Mollie
+- `mollie_create_mandate(method:, consumer_name:, consumer_account:, signature_date: nil)` → creates SEPA DD mandate directly (**requires prior customer consent** — see [docs/mandates.md](docs/mandates.md))
+- `mollie_revoke_mandate(mandate)` — revokes mandate on Mollie, sets local status to invalid
+- `mollie_update_customer(name: nil, email: nil, locale: nil, metadata: nil)` — syncs customer details to Mollie
+- `mollie_delete_customer` — deletes on Mollie and cascade-destroys all local records
 - `mollie_payment_methods(**options)` → delegates to `MolliePay.payment_methods`
 
 **Named subscriptions:** All subscription methods accept `name:` with a default
