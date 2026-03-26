@@ -30,6 +30,27 @@ module MolliePay
       mollie_customer || create_mollie_customer_on_mollie
     end
 
+    def mollie_update_customer(name: nil, email: nil, locale: nil, metadata: nil)
+      raise MolliePay::Error, "No Mollie customer exists" if mollie_customer.nil?
+
+      params = {}
+      params[:name]     = name     if name
+      params[:email]    = email    if email
+      params[:locale]   = locale   if locale
+      params[:metadata] = metadata if metadata
+      return mollie_customer if params.empty?
+
+      Mollie::Customer.update(mollie_customer.mollie_id, params)
+      mollie_customer
+    end
+
+    def mollie_delete_customer
+      raise MolliePay::Error, "No Mollie customer exists" if mollie_customer.nil?
+
+      Mollie::Customer.delete(mollie_customer.mollie_id)
+      mollie_customer.destroy!
+    end
+
     # === Payments ===
 
     def mollie_pay_once(amount:, description:, redirect_url: nil, method: nil, metadata: nil)

@@ -857,6 +857,91 @@ module MolliePay
       end
     end
 
+    # === Customer update & delete ===
+
+    test "mollie_update_customer calls Mollie API with provided params" do
+      received_id = nil
+      received_params = nil
+      fake_update = ->(id, params) { received_id = id; received_params = params; OpenStruct.new }
+
+      Mollie::Customer.stub(:update, fake_update) do
+        @org.mollie_update_customer(name: "New Name", email: "new@acme.nl")
+      end
+
+      assert_equal @org.mollie_customer.mollie_id, received_id
+      assert_equal "New Name", received_params[:name]
+      assert_equal "new@acme.nl", received_params[:email]
+    end
+
+    test "mollie_update_customer only sends non-nil params" do
+      received_params = nil
+      fake_update = ->(_, params) { received_params = params; OpenStruct.new }
+
+      Mollie::Customer.stub(:update, fake_update) do
+        @org.mollie_update_customer(name: "Only Name")
+      end
+
+      assert_equal({ name: "Only Name" }, received_params)
+    end
+
+    test "mollie_update_customer skips API call when no params provided" do
+      api_called = false
+      fake_update = ->(_, _) { api_called = true; OpenStruct.new }
+
+      Mollie::Customer.stub(:update, fake_update) do
+        result = @org.mollie_update_customer
+        assert_equal @org.mollie_customer, result
+      end
+
+      assert_not api_called, "Should not call Mollie API with empty params"
+    end
+
+    test "mollie_update_customer raises when no mollie_customer exists" do
+      org = Organization.create!(name: "New Org", email: "new@org.nl")
+
+      assert_raises(MolliePay::Error, "No Mollie customer exists") do
+        org.mollie_update_customer(name: "Nope")
+      end
+    end
+
+    test "mollie_update_customer returns the mollie_customer" do
+      Mollie::Customer.stub(:update, OpenStruct.new) do
+        result = @org.mollie_update_customer(name: "Updated")
+        assert_equal @org.mollie_customer, result
+      end
+    end
+
+    test "mollie_delete_customer calls Mollie API and destroys local record" do
+      customer = @org.mollie_customer
+
+      Mollie::Customer.stub(:delete, nil) do
+        @org.mollie_delete_customer
+      end
+
+      assert_nil @org.reload.mollie_customer
+    end
+
+    test "mollie_delete_customer cascades destroy to associated records" do
+      customer = @org.mollie_customer
+      payment_count = customer.payments.count
+      assert payment_count > 0
+
+      Mollie::Customer.stub(:delete, nil) do
+        @org.mollie_delete_customer
+      end
+
+      assert_nil @org.reload.mollie_customer
+      assert_equal 0, MolliePay::Payment.where(customer_id: customer.id).count
+    end
+
+    test "mollie_delete_customer raises when no mollie_customer exists" do
+      org = Organization.create!(name: "New Org", email: "new@org.nl")
+
+      assert_raises(MolliePay::Error, "No Mollie customer exists") do
+        org.mollie_delete_customer
+      end
+    end
+
     # === Sales Invoices (beta) ===
 
     test "mollie_create_sales_invoice auto-populates consumer recipient from billable" do
