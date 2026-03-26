@@ -857,6 +857,89 @@ module MolliePay
       end
     end
 
+    # === Sales Invoices (beta) ===
+
+    test "mollie_create_sales_invoice auto-populates consumer recipient from billable" do
+      received_recipient = nil
+      fake_create = ->(**args) {
+        received_recipient = args[:recipient]
+        OpenStruct.new(id: "invoice_test", status: "draft")
+      }
+
+      MolliePay.stub(:create_sales_invoice, fake_create) do
+        @org.mollie_create_sales_invoice(
+          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 } ]
+        )
+      end
+
+      assert_equal "consumer", received_recipient[:type]
+      assert_equal "Acme Corp", received_recipient[:given_name]
+      assert_equal "billing@acme.nl", received_recipient[:email]
+    end
+
+    test "mollie_create_sales_invoice explicit recipient overrides auto-populated" do
+      received_recipient = nil
+      fake_create = ->(**args) {
+        received_recipient = args[:recipient]
+        OpenStruct.new(id: "invoice_test", status: "draft")
+      }
+
+      explicit = { type: "business", organization_name: "Override B.V.", email: "override@test.nl" }
+
+      MolliePay.stub(:create_sales_invoice, fake_create) do
+        @org.mollie_create_sales_invoice(
+          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 } ],
+          recipient: explicit
+        )
+      end
+
+      assert_equal "business", received_recipient[:type]
+      assert_equal "Override B.V.", received_recipient[:organization_name]
+    end
+
+    test "mollie_create_sales_invoice passes status and options" do
+      received_args = nil
+      fake_create = ->(**args) {
+        received_args = args
+        OpenStruct.new(id: "invoice_test", status: "issued")
+      }
+
+      MolliePay.stub(:create_sales_invoice, fake_create) do
+        @org.mollie_create_sales_invoice(
+          status: "issued",
+          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 } ],
+          memo: "Thank you!",
+          email_details: { subject: "Invoice", body: "Please pay" }
+        )
+      end
+
+      assert_equal "issued", received_args[:status]
+      assert_equal "Thank you!", received_args[:memo]
+      assert_equal({ subject: "Invoice", body: "Please pay" }, received_args[:email_details])
+    end
+
+    test "mollie_sales_invoices delegates to MolliePay" do
+      called_with = nil
+      fake_all = ->(**options) { called_with = options; [] }
+
+      MolliePay.stub(:sales_invoices, fake_all) do
+        @org.mollie_sales_invoices(limit: 5)
+      end
+
+      assert_equal({ limit: 5 }, called_with)
+    end
+
+    test "mollie_sales_invoice delegates to MolliePay" do
+      called_with_id = nil
+      fake_get = ->(id) { called_with_id = id; OpenStruct.new(id: id, status: "draft") }
+
+      MolliePay.stub(:sales_invoice, fake_get) do
+        @org.mollie_sales_invoice("invoice_abc123")
+      end
+
+      assert_equal "invoice_abc123", called_with_id
+    end
+
     test "mollie_refund raises error for payment not belonging to this customer" do
       other_org = Organization.create!(name: "Other Org", email: "other@org.nl")
       other_customer = MolliePay::Customer.create!(mollie_id: "cst_other", owner: other_org)

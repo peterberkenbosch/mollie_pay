@@ -177,6 +177,21 @@ module MolliePay
       MolliePay.payment_methods(**options)
     end
 
+    # === Sales Invoices (beta) ===
+
+    def mollie_create_sales_invoice(lines:, status: "draft", recipient: nil, **options)
+      resolved_recipient = recipient || build_sales_invoice_recipient
+      MolliePay.create_sales_invoice(status: status, recipient: resolved_recipient, lines: lines, **options)
+    end
+
+    def mollie_sales_invoices(**options)
+      MolliePay.sales_invoices(**options)
+    end
+
+    def mollie_sales_invoice(id)
+      MolliePay.sales_invoice(id)
+    end
+
     # === Hooks — override these in your model ===
 
     def on_mollie_payment_paid(payment)             ; end
@@ -244,6 +259,21 @@ module MolliePay
         idempotency_key: SecureRandom.uuid
       )
       create_mollie_customer!(mollie_id: mc.id)
+    end
+
+    def build_sales_invoice_recipient
+      if respond_to?(:organization_name) && organization_name.present?
+        { type: "business", organization_name: organization_name }.tap do |r|
+          r[:email]      = email      if respond_to?(:email) && email.present?
+          r[:vat_number] = vat_number if respond_to?(:vat_number) && vat_number.present?
+        end
+      else
+        {}.tap do |r|
+          r[:type]        = "consumer"
+          r[:given_name]  = name       if respond_to?(:name) && name.present?
+          r[:email]       = email      if respond_to?(:email) && email.present?
+        end
+      end
     end
 
     def mollie_amount(cents)

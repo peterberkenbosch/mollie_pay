@@ -1,0 +1,72 @@
+{
+  "resource": "sales-invoice",
+  "id": "invoice_test1234AB",
+  "profileId": "pfl_testXYZ",
+  "status": "issued",
+  "invoiceNumber": "INV-0000001",
+  "recipientIdentifier": "customer-xyz-0123",
+  "recipient": {
+    "type": "consumer",
+    "givenName": "Jane",
+    "familyName": "Doe",
+    "email": "jane@example.com",
+    "streetAndNumber": "Keizersgracht 126",
+    "postalCode": "1015 CX",
+    "city": "Amsterdam",
+    "country": "NL",
+    "locale": "nl_NL"
+  },
+  "lines": [
+    {
+      "description": "Monthly subscription - Pro plan",
+      "quantity": 1,
+      "vatRate": "21.00",
+      "unitPrice": {
+        "currency": "EUR",
+        "value": "89.00"
+      }
+    }
+  ],
+  "paymentTerm": "30 days",
+  "vatScheme": "standard",
+  "vatMode": "exclusive",
+  "memo": "Thank you for your business!",
+  "isEInvoice": false,
+  "subtotalAmount": {
+    "currency": "EUR",
+    "value": "89.00"
+  },
+  "discountedSubtotalAmount": {
+    "currency": "EUR",
+    "value": "89.00"
+  },
+  "totalVatAmount": {
+    "currency": "EUR",
+    "value": "18.69"
+  },
+  "totalAmount": {
+    "currency": "EUR",
+    "value": "107.69"
+  },
+  "amountDue": {
+    "currency": "EUR",
+    "value": "107.69"
+  },
+  "createdAt": "2026-03-26T10:00:00+00:00",
+  "issuedAt": "2026-03-26T10:00:00+00:00",
+  "dueAt": "2026-04-25T10:00:00+00:00",
+  "_links": {
+    "self": {
+      "href": "https://api.mollie.com/v2/sales-invoices/invoice_test1234AB",
+      "type": "application/hal+json"
+    },
+    "pdfLink": {
+      "href": "https://api.mollie.com/v2/sales-invoices/invoice_test1234AB/pdf",
+      "type": "application/pdf"
+    },
+    "invoicePayment": {
+      "href": "https://pay.mollie.com/invoice/test1234AB",
+      "type": "text/html"
+    }
+  }
+}

@@ -120,6 +120,44 @@ MolliePay.payment_methods(amount: 1000)          # filtered by amount (cents)
 MolliePay.payment_method("ideal")                # single method details
 ```
 
+### Sales Invoices (beta)
+
+Create, retrieve, and manage sales invoices through Mollie's Sales Invoices API.
+No local model is stored — all data lives on Mollie's side.
+
+```ruby
+# Create a draft invoice
+invoice = current_organization.mollie_create_sales_invoice(
+  lines: [{ description: "Pro plan", quantity: 1, vat_rate: "21.00", unit_price: 8900 }]
+)
+
+# Create and send immediately
+invoice = current_organization.mollie_create_sales_invoice(
+  status: "issued",
+  lines: [{ description: "Pro plan", quantity: 1, vat_rate: "21.00", unit_price: 8900 }],
+  email_details: { subject: "Your invoice", body: "Please pay within 30 days" }
+)
+
+# With explicit recipient (overrides auto-populated fields)
+invoice = MolliePay.create_sales_invoice(
+  status: "draft",
+  recipient: { type: "business", organization_name: "Acme B.V.", email: "billing@acme.nl" },
+  lines: [{ description: "Consulting", quantity: 10, vat_rate: "21.00", unit_price: 15000 }],
+  payment_term: "30 days",
+  memo: "Thank you for your business!"
+)
+
+# Retrieve, list, update, delete
+invoice = MolliePay.sales_invoice("invoice_abc123")
+invoices = MolliePay.sales_invoices
+MolliePay.update_sales_invoice("invoice_abc123", memo: "Updated memo")
+MolliePay.delete_sales_invoice("invoice_abc123")  # draft only
+```
+
+Line item `unit_price` accepts cents (integer) and is converted automatically.
+The Billable convenience method auto-populates the recipient from your model's
+`name` and `email` attributes.
+
 ### Query state
 
 ```ruby
