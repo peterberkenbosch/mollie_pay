@@ -168,6 +168,45 @@ module MolliePay
       OpenStruct.new(id: id, status: status)
     end
 
+    # Build a fake Mollie sales invoice response (OpenStruct).
+    def fake_mollie_sales_invoice(id: nil, status: "draft")
+      id ||= "invoice_test#{SecureRandom.hex(4)}"
+      OpenStruct.new(
+        id: id,
+        status: status,
+        invoice_number: nil,
+        recipient_identifier: nil
+      )
+    end
+
+    # Stub Mollie::SalesInvoice.create.
+    #
+    #   stub_mollie_sales_invoice_create do
+    #     invoice = MolliePay.create_sales_invoice(
+    #       status: "draft",
+    #       recipient: { type: "consumer", given_name: "Jane" },
+    #       lines: [{ description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 }]
+    #     )
+    #     assert_equal "draft", invoice.status
+    #   end
+    #
+    def stub_mollie_sales_invoice_create(**overrides, &block)
+      response = fake_mollie_sales_invoice(**overrides)
+      Mollie::SalesInvoice.stub(:create, response, &block)
+    end
+
+    # Stub Mollie::SalesInvoice.get.
+    #
+    #   stub_mollie_sales_invoice_get do
+    #     invoice = MolliePay.sales_invoice("invoice_abc123")
+    #     assert_equal "issued", invoice.status
+    #   end
+    #
+    def stub_mollie_sales_invoice_get(**overrides, &block)
+      response = fake_mollie_sales_invoice(**overrides)
+      Mollie::SalesInvoice.stub(:get, response, &block)
+    end
+
     # ── WebMock-based API stubs ────────────────────────────────────────
     #
     # These stub the actual HTTP endpoints that the Mollie SDK calls.
@@ -287,6 +326,36 @@ module MolliePay
     def webmock_mollie_payment_get(payment_id, **overrides)
       body = mollie_fixture("payment", id: payment_id, **overrides)
       stub_request(:get, "#{MOLLIE_API_BASE}/payments/#{payment_id}")
+        .to_return(status: 200, body: body, headers: { "Content-Type" => "application/hal+json" })
+      yield
+    ensure
+      WebMock.reset!
+    end
+
+    # Stub POST /v2/sales-invoices.
+    #
+    #   webmock_mollie_sales_invoice_create do
+    #     invoice = MolliePay.create_sales_invoice(...)
+    #   end
+    #
+    def webmock_mollie_sales_invoice_create(**overrides)
+      body = mollie_fixture("sales_invoice", **overrides)
+      stub_request(:post, "#{MOLLIE_API_BASE}/sales-invoices")
+        .to_return(status: 201, body: body, headers: { "Content-Type" => "application/hal+json" })
+      yield
+    ensure
+      WebMock.reset!
+    end
+
+    # Stub GET /v2/sales-invoices/:id.
+    #
+    #   webmock_mollie_sales_invoice_get("invoice_abc123") do
+    #     invoice = MolliePay.sales_invoice("invoice_abc123")
+    #   end
+    #
+    def webmock_mollie_sales_invoice_get(invoice_id, **overrides)
+      body = mollie_fixture("sales_invoice", id: invoice_id, **overrides)
+      stub_request(:get, "#{MOLLIE_API_BASE}/sales-invoices/#{invoice_id}")
         .to_return(status: 200, body: body, headers: { "Content-Type" => "application/hal+json" })
       yield
     ensure
