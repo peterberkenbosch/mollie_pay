@@ -413,6 +413,104 @@ module MolliePay
       assert_equal @org.mollie_customer.mollie_id, received_options[:customer_id]
     end
 
+    # === Mandate create & revoke ===
+
+    test "mollie_create_mandate creates mandate on Mollie and persists locally" do
+      stub_mollie_mandate_create(id: "mdt_new123") do
+        mandate = @org.mollie_create_mandate(
+          method: "directdebit",
+          consumer_name: "Acme Corp",
+          consumer_account: "NL55INGB0000000000"
+        )
+
+        assert_equal "mdt_new123", mandate.mollie_id
+        assert_equal "valid", mandate.status
+        assert_equal "directdebit", mandate.method
+        assert_equal @org.mollie_customer, mandate.customer
+        assert_not_nil mandate.mandated_at
+      end
+    end
+
+    test "mollie_create_mandate creates customer if none exists" do
+      org = Organization.create!(name: "Fresh Org", email: "fresh@org.nl")
+      assert_nil org.mollie_customer
+
+      customer_response = fake_mollie_customer(id: "cst_fresh_mdt")
+      mandate_response  = fake_mollie_mandate(id: "mdt_fresh123")
+
+      Mollie::Customer.stub(:create, customer_response) do
+        Mollie::Customer::Mandate.stub(:create, mandate_response) do
+          mandate = org.mollie_create_mandate(
+            method: "directdebit",
+            consumer_name: "Fresh Org",
+            consumer_account: "NL55INGB0000000000"
+          )
+
+          assert_not_nil org.reload.mollie_customer
+          assert_equal "cst_fresh_mdt", org.mollie_customer.mollie_id
+          assert_equal "mdt_fresh123", mandate.mollie_id
+        end
+      end
+    end
+
+    test "mollie_create_mandate fires on_mollie_mandate_created for valid mandates" do
+      hook_called = false
+      @org.define_singleton_method(:on_mollie_mandate_created) { |_m| hook_called = true }
+
+      stub_mollie_mandate_create(id: "mdt_hook123", status: "valid") do
+        @org.mollie_create_mandate(
+          method: "directdebit",
+          consumer_name: "Acme Corp",
+          consumer_account: "NL55INGB0000000000"
+        )
+      end
+
+      assert hook_called, "on_mollie_mandate_created should have been called"
+    end
+
+    test "mollie_create_mandate sends idempotency key" do
+      received_args = nil
+      response = fake_mollie_mandate(id: "mdt_idem123")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Customer::Mandate.stub(:create, fake_create) do
+        @org.mollie_create_mandate(
+          method: "directdebit",
+          consumer_name: "Acme Corp",
+          consumer_account: "NL55INGB0000000000"
+        )
+      end
+
+      assert received_args[:idempotency_key].present?, "idempotency_key should be present"
+      assert_match(/\A[0-9a-f-]{36}\z/, received_args[:idempotency_key])
+    end
+
+    test "mollie_revoke_mandate calls Mollie API and updates status to invalid" do
+      mandate = mollie_pay_mandates(:acme_mandate)
+      assert_equal "valid", mandate.status
+
+      stub_mollie_mandate_revoke do
+        result = @org.mollie_revoke_mandate(mandate)
+        assert_equal mandate, result
+      end
+
+      assert_equal "invalid", mandate.reload.status
+    end
+
+    test "mollie_revoke_mandate works with correct customer_id" do
+      mandate = mollie_pay_mandates(:acme_mandate)
+      received_id = nil
+      received_options = nil
+      fake_delete = ->(id, **opts) { received_id = id; received_options = opts; nil }
+
+      Mollie::Customer::Mandate.stub(:delete, fake_delete) do
+        @org.mollie_revoke_mandate(mandate)
+      end
+
+      assert_equal mandate.mollie_id, received_id
+      assert_equal @org.mollie_customer.mollie_id, received_options[:customer_id]
+    end
+
     # === Named subscriptions ===
 
     test "mollie_subscribe creates named subscription" do
