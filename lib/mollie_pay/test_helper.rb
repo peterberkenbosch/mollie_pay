@@ -220,6 +220,7 @@ module MolliePay
     end
 
     # Build a fake Mollie sales invoice response (OpenStruct).
+    # Simple version for stub helpers.
     def fake_mollie_sales_invoice(id: nil, status: "draft")
       id ||= "invoice_test#{SecureRandom.hex(4)}"
       OpenStruct.new(
@@ -227,6 +228,24 @@ module MolliePay
         status: status,
         invoice_number: nil,
         recipient_identifier: nil
+      )
+    end
+
+    # Build a fake Mollie sales invoice response with all fields needed
+    # for SalesInvoice.record_from_mollie. Use this when testing Billable
+    # methods that persist local records.
+    def fake_mollie_sales_invoice_response(id: nil, status: "draft")
+      id ||= "invoice_test#{SecureRandom.hex(4)}"
+      OpenStruct.new(
+        id: id,
+        status: status,
+        invoice_number: status == "issued" ? "INV-0000001" : nil,
+        total_amount: OpenStruct.new(value: BigDecimal("107.69"), currency: "EUR"),
+        recipient_identifier: "cust-test",
+        memo: "Test invoice",
+        issued_at: status == "issued" ? Time.current : nil,
+        paid_at: status == "paid" ? Time.current : nil,
+        due_at: 30.days.from_now
       )
     end
 

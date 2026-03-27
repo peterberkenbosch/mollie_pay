@@ -4,4 +4,5 @@ module MolliePay
   class SubscriptionNotFound < Error; end
   class PaymentNotCancelable < Error; end
   class InvalidSignature     < Error; end
+  class InvoiceNotUpdatable  < Error; end
 end

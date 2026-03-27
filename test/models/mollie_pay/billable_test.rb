@@ -1042,11 +1042,28 @@ module MolliePay
 
     # === Sales Invoices (beta) ===
 
-    test "mollie_create_sales_invoice auto-populates consumer recipient from billable" do
+    test "mollie_create_sales_invoice persists a local SalesInvoice record" do
+      mollie_response = fake_mollie_sales_invoice_response(id: "invoice_persist", status: "draft")
+
+      MolliePay.stub(:create_sales_invoice, mollie_response) do
+        invoice = @org.mollie_create_sales_invoice(
+          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 } ]
+        )
+
+        assert_instance_of MolliePay::SalesInvoice, invoice
+        assert invoice.persisted?
+        assert_equal "invoice_persist", invoice.mollie_id
+        assert_equal "draft", invoice.status
+        assert_equal @org.mollie_customer, invoice.customer
+      end
+    end
+
+    test "mollie_create_sales_invoice auto-populates consumer recipient" do
       received_recipient = nil
+      original_create = MolliePay.method(:create_sales_invoice)
       fake_create = ->(**args) {
         received_recipient = args[:recipient]
-        OpenStruct.new(id: "invoice_test", status: "draft")
+        fake_mollie_sales_invoice_response(id: "invoice_recip", status: "draft")
       }
 
       MolliePay.stub(:create_sales_invoice, fake_create) do
@@ -1064,7 +1081,7 @@ module MolliePay
       received_recipient = nil
       fake_create = ->(**args) {
         received_recipient = args[:recipient]
-        OpenStruct.new(id: "invoice_test", status: "draft")
+        fake_mollie_sales_invoice_response(id: "invoice_override", status: "draft")
       }
 
       explicit = { type: "business", organization_name: "Override B.V.", email: "override@test.nl" }
@@ -1080,36 +1097,83 @@ module MolliePay
       assert_equal "Override B.V.", received_recipient[:organization_name]
     end
 
-    test "mollie_create_sales_invoice passes status and options" do
-      received_args = nil
-      fake_create = ->(**args) {
-        received_args = args
-        OpenStruct.new(id: "invoice_test", status: "issued")
-      }
+    test "mollie_create_sales_invoice fires on_mollie_sales_invoice_issued for issued status" do
+      hook_called = false
+      hook_invoice = nil
+      @org.define_singleton_method(:on_mollie_sales_invoice_issued) { |inv| hook_called = true; hook_invoice = inv }
 
-      MolliePay.stub(:create_sales_invoice, fake_create) do
+      mollie_response = fake_mollie_sales_invoice_response(id: "invoice_issued_hook", status: "issued")
+      MolliePay.stub(:create_sales_invoice, mollie_response) do
         @org.mollie_create_sales_invoice(
           status: "issued",
-          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 } ],
-          memo: "Thank you!",
-          email_details: { subject: "Invoice", body: "Please pay" }
+          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 } ]
         )
       end
 
-      assert_equal "issued", received_args[:status]
-      assert_equal "Thank you!", received_args[:memo]
-      assert_equal({ subject: "Invoice", body: "Please pay" }, received_args[:email_details])
+      assert hook_called, "on_mollie_sales_invoice_issued should have been called"
+      assert_equal "invoice_issued_hook", hook_invoice.mollie_id
     end
 
-    test "mollie_sales_invoices delegates to MolliePay" do
-      called_with = nil
-      fake_all = ->(**options) { called_with = options; [] }
+    test "mollie_mark_invoice_paid updates Mollie and local record" do
+      invoice = mollie_pay_sales_invoices(:acme_issued)
+      assert invoice.issued?
 
-      MolliePay.stub(:sales_invoices, fake_all) do
-        @org.mollie_sales_invoices(limit: 5)
+      fake_update = ->(_id, **_attrs) { fake_mollie_sales_invoice_response(id: invoice.mollie_id, status: "paid") }
+
+      MolliePay.stub(:update_sales_invoice, fake_update) do
+        result = @org.mollie_mark_invoice_paid(invoice)
+
+        assert_equal "paid", result.status
+        assert_not_nil result.paid_at
+        assert_equal invoice, result
+      end
+    end
+
+    test "mollie_mark_invoice_paid fires on_mollie_sales_invoice_paid hook" do
+      invoice = mollie_pay_sales_invoices(:acme_issued)
+      hook_called = false
+      @org.define_singleton_method(:on_mollie_sales_invoice_paid) { |_inv| hook_called = true }
+
+      fake_update = ->(_id, **_attrs) { fake_mollie_sales_invoice_response(id: invoice.mollie_id, status: "paid") }
+      MolliePay.stub(:update_sales_invoice, fake_update) do
+        @org.mollie_mark_invoice_paid(invoice)
       end
 
-      assert_equal({ limit: 5 }, called_with)
+      assert hook_called, "on_mollie_sales_invoice_paid should have been called"
+    end
+
+    test "mollie_mark_invoice_paid sends correct params to Mollie" do
+      invoice = mollie_pay_sales_invoices(:acme_issued)
+      received_id = nil
+      received_attrs = nil
+
+      fake_update = ->(id, **attrs) {
+        received_id = id
+        received_attrs = attrs
+        fake_mollie_sales_invoice_response(id: id, status: "paid")
+      }
+
+      MolliePay.stub(:update_sales_invoice, fake_update) do
+        @org.mollie_mark_invoice_paid(invoice, source: "payment")
+      end
+
+      assert_equal invoice.mollie_id, received_id
+      assert_equal "paid", received_attrs[:status]
+      assert_equal({ source: "payment" }, received_attrs[:payment_details])
+    end
+
+    test "mollie_mark_invoice_paid raises for non-issued invoice" do
+      invoice = mollie_pay_sales_invoices(:acme_draft)
+      assert invoice.draft?
+
+      assert_raises(MolliePay::InvoiceNotUpdatable) do
+        @org.mollie_mark_invoice_paid(invoice)
+      end
+    end
+
+    test "mollie_sales_invoices returns association" do
+      assert_includes @org.mollie_sales_invoices, mollie_pay_sales_invoices(:acme_draft)
+      assert_includes @org.mollie_sales_invoices, mollie_pay_sales_invoices(:acme_issued)
     end
 
     test "mollie_sales_invoice delegates to MolliePay" do

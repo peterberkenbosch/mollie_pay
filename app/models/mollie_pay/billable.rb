@@ -22,6 +22,11 @@ module MolliePay
                through:    :mollie_customer,
                source:     :mandates,
                class_name: "MolliePay::Mandate"
+
+      has_many :mollie_sales_invoices,
+               through:    :mollie_customer,
+               source:     :sales_invoices,
+               class_name: "MolliePay::SalesInvoice"
     end
 
     # === Customer ===
@@ -229,12 +234,24 @@ module MolliePay
     # === Sales Invoices (beta) ===
 
     def mollie_create_sales_invoice(lines:, status: "draft", recipient: nil, **options)
+      customer = mollie_customer!
       resolved_recipient = recipient || build_sales_invoice_recipient
-      MolliePay.create_sales_invoice(status: status, recipient: resolved_recipient, lines: lines, **options)
+      mollie_si = MolliePay.create_sales_invoice(status: status, recipient: resolved_recipient, lines: lines, **options)
+      SalesInvoice.record_from_mollie(mollie_si, customer)
     end
 
-    def mollie_sales_invoices(**options)
-      MolliePay.sales_invoices(**options)
+    def mollie_mark_invoice_paid(invoice, source: "manual")
+      raise MolliePay::InvoiceNotUpdatable, "Only issued invoices can be marked as paid" unless invoice.issued?
+
+      MolliePay.update_sales_invoice(
+        invoice.mollie_id,
+        status: "paid",
+        payment_details: { source: source }
+      )
+
+      invoice.update!(status: "paid", paid_at: Time.current)
+      on_mollie_sales_invoice_paid(invoice)
+      invoice
     end
 
     def mollie_sales_invoice(id)
