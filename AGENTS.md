@@ -55,8 +55,11 @@ app/
     chargeback.rb
     payment.rb
     refund.rb
+    sales_invoice.rb
     subscription.rb
 lib/
+  mollie/
+    sales_invoice.rb        # SDK extension for /v2/sales-invoices endpoint
   mollie_pay/
     configuration.rb
     engine.rb
@@ -186,9 +189,10 @@ Public methods:
 - `mollie_subscription(name: "default")`
 - `mollie_mandate`
 - `mollie_payments` → `has_many :through` association (supports `includes`, `joins`, etc.)
-- `mollie_create_sales_invoice(lines:, status: "draft", recipient: nil, **options)` → creates sales invoice on Mollie (beta)
-- `mollie_sales_invoices(**options)` → lists sales invoices from Mollie
-- `mollie_sales_invoice(id)` → gets single sales invoice from Mollie
+- `mollie_create_sales_invoice(lines:, status: "draft", recipient: nil, **options)` → creates on Mollie and persists local `SalesInvoice` record (beta)
+- `mollie_mark_invoice_paid(invoice, source: "manual")` → marks issued invoice as paid on Mollie + local record, fires hook
+- `mollie_sales_invoices` → `has_many :through` association (supports scopes: `.issued`, `.paid`, `.overdue`)
+- `mollie_sales_invoice(id)` → gets single sales invoice from Mollie API
 - `mollie_create_mandate(method:, consumer_name:, consumer_account:, signature_date: nil)` → creates SEPA DD mandate directly (**requires prior customer consent** — see [docs/mandates.md](docs/mandates.md))
 - `mollie_revoke_mandate(mandate)` — revokes mandate on Mollie, sets local status to invalid
 - `mollie_update_customer(name: nil, email: nil, locale: nil, metadata: nil)` — syncs customer details to Mollie
@@ -215,6 +219,8 @@ Event hooks (override in host model, all no-ops by default):
 - `on_mollie_chargeback_received`
 - `on_mollie_chargeback_reversed`
 - `on_mollie_subscription_swapped(subscription, previous_amount:, previous_interval:)`
+- `on_mollie_sales_invoice_issued`
+- `on_mollie_sales_invoice_paid`
 
 ---
 
