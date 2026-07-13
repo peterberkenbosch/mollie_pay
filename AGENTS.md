@@ -29,9 +29,11 @@ no views, one webhook endpoint, pure business logic.
 - **No JavaScript, no asset pipeline, no views.** This engine is headless.
   Delete anything the generator adds in `app/assets`, `app/helpers` or
   `app/views`.
-- **Amounts are always integers (cents).** Never floats. Never strings.
-  Convert at the Mollie API boundary only, using `mollie_amount` and
-  `mollie_value_to_cents`.
+- **Amounts are always exact `BigDecimal`.** Never cents, never floats. Stored in
+  TEXT-affinity `:string` columns via the registered `:money` cast
+  (`MolliePay::DecimalMoneyType`); never a `:decimal` column (SQLite NUMERIC
+  affinity stores REAL/float and loses precision). Convert to Mollie's wire format
+  only at the API boundary, using `mollie_amount` and `mollie_value_to_decimal`.
 
 ---
 
@@ -48,7 +50,7 @@ app/
     process_webhook_job.rb      # classic webhook processing
     process_webhook_event_job.rb # next-gen event processing
   models/mollie_pay/
-    application_record.rb       # shared mollie_value_to_cents
+    application_record.rb       # shared mollie_value_to_decimal
     billable.rb                 # concern included by host app model
     customer.rb
     mandate.rb
@@ -145,8 +147,8 @@ end
 The `previous_status` check ensures hooks fire only on actual state
 transitions. The `includes(:owner)` avoids N+1 queries when calling hooks.
 
-`mollie_value_to_cents` is defined on `ApplicationRecord` and shared by all
-models that convert Mollie amounts.
+`mollie_value_to_decimal` is defined on `ApplicationRecord` and shared by all
+models that convert Mollie amounts (parses Mollie's `value` string to BigDecimal).
 
 ---
 
@@ -300,8 +302,8 @@ bin/rails test test/jobs
 - Use `Time.current` not `Time.now`
 - Use `Date.today` not `Date.new`
 - Raise named errors from `MolliePay::Error` subclasses, never raw `RuntimeError`
-- All money amounts: **cents as Integer** in the database, converted to Mollie
-  format only at the API call boundary
+- All money amounts: **exact `BigDecimal`**, stored as text via the `:money` cast,
+  converted to Mollie's wire format only at the API call boundary
 - Use `params.expect` not `params.require.permit` (Rails 8+)
 - Expanded conditionals over guard clauses — guard clauses only for early
   returns at the top of a method, never mid-method

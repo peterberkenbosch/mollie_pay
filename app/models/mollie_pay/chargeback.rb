@@ -2,6 +2,8 @@ module MolliePay
   class Chargeback < ApplicationRecord
     belongs_to :payment
 
+    attribute :amount, :money
+
     validates :mollie_id, presence: true, uniqueness: true
     validates :amount,    presence: true, numericality: { greater_than: 0 }
     validates :currency,  presence: true
@@ -20,7 +22,7 @@ module MolliePay
 
         chargeback.update!(
           payment:           payment,
-          amount:            mollie_value_to_cents(mc.amount),
+          amount:            mollie_value_to_decimal(mc.amount),
           currency:          mc.amount.currency,
           reason:            extract_reason(mc),
           created_at_mollie: mc.created_at,
@@ -52,12 +54,8 @@ module MolliePay
       Mollie::Payment::Chargeback.get(mollie_id, payment_id: payment.mollie_id)
     end
 
-    def amount_decimal
-      amount / 100.0
-    end
-
     def mollie_amount
-      { currency: currency, value: format("%.2f", amount_decimal) }
+      { currency: currency, value: format("%.2f", amount) }
     end
 
     private

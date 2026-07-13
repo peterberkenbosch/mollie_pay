@@ -6,7 +6,7 @@ class CreateMolliePaySalesInvoices < ActiveRecord::Migration[8.1]
       t.string   :mollie_id,             null: false, index: { unique: true }
       t.string   :status,                null: false, default: "draft"
       t.string   :invoice_number
-      t.integer  :amount
+      t.string   :amount # BigDecimal money as text (see MolliePay::DecimalMoneyType)
       t.string   :currency
       t.string   :recipient_identifier
       t.text     :memo

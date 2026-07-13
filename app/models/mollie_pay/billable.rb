@@ -194,17 +194,17 @@ module MolliePay
 
     def mollie_refund(payment, amount: nil)
       verify_payment_ownership!(payment)
-      amount_cents = amount || payment.amount
+      refund_amount = amount || payment.amount
       mr = Mollie::Refund.create(
         paymentId:      payment.mollie_id,
-        amount:         mollie_amount(amount_cents),
+        amount:         mollie_amount(refund_amount),
         idempotency_key: SecureRandom.uuid
       )
       Refund.create!(
         payment:  payment,
         mollie_id: mr.id,
         status:    mr.status,
-        amount:    amount_cents,
+        amount:    refund_amount,
         currency:  payment.currency
       )
     end
@@ -344,10 +344,11 @@ module MolliePay
       end
     end
 
-    def mollie_amount(cents)
+    # Convert a BigDecimal amount to Mollie's wire format { currency:, value: "10.00" }.
+    def mollie_amount(amount)
       {
         currency: MolliePay.configuration.currency,
-        value:    format("%.2f", cents / 100.0)
+        value:    format("%.2f", amount)
       }
     end
   end

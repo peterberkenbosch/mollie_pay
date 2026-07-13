@@ -2,7 +2,7 @@ acme_first:
   customer: acme
   mollie_id: tr_first123
   status: paid
-  amount: 1000
+  amount: "10.00"
   currency: EUR
   sequence_type: first
   paid_at: <%= 1.week.ago %>
@@ -12,7 +12,7 @@ acme_recurring:
   subscription: acme_monthly
   mollie_id: tr_recurring123
   status: paid
-  amount: 2500
+  amount: "25.00"
   currency: EUR
   sequence_type: recurring
   paid_at: <%= 1.day.ago %>
@@ -21,6 +21,6 @@ acme_oneoff:
   customer: acme
   mollie_id: tr_oneoff123
   status: open
-  amount: 7500
+  amount: "75.00"
   currency: EUR
   sequence_type: oneoff

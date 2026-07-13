@@ -15,7 +15,7 @@ class MolliePay::PaymentMethodsTest < ActiveSupport::TestCase
     fake_all = ->(params) { called_with = params; [] }
 
     Mollie::Method.stub(:all, fake_all) do
-      MolliePay.payment_methods(amount: 1000)
+      MolliePay.payment_methods(amount: BigDecimal("10.00"))
     end
 
     assert_equal({ currency: "EUR", value: "10.00" }, called_with[:amount])
@@ -26,7 +26,7 @@ class MolliePay::PaymentMethodsTest < ActiveSupport::TestCase
     fake_all = ->(params) { called_with = params; [] }
 
     Mollie::Method.stub(:all, fake_all) do
-      MolliePay.payment_methods(amount: 500, currency: "USD")
+      MolliePay.payment_methods(amount: BigDecimal("5.00"), currency: "USD")
     end
 
     assert_equal "USD", called_with[:amount][:currency]

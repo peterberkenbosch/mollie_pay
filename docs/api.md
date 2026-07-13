@@ -88,15 +88,16 @@ This is a live API call — don't use it in loops or list views.
 
 ## Amounts
 
-All amounts in MolliePay are **integers representing cents**.
+All amounts in MolliePay are exact **`BigDecimal`** (stored as text, never cents).
 
 ```ruby
-payment.amount          # => 2500 (cents)
-payment.amount_decimal  # => 25.0 (for display)
-payment.mollie_amount   # => { currency: "EUR", value: "25.00" } (Mollie format)
+payment.amount          # => BigDecimal("25.00")
+payment.mollie_amount   # => { currency: "EUR", value: "25.00" } (Mollie wire format)
 ```
 
-The same methods are available on `Subscription` and `Refund`.
+The same methods are available on `Subscription` and `Refund`. Pass amounts to the
+public API as `BigDecimal` (e.g. `BigDecimal("25.00")`); conversion to Mollie's wire
+format happens only at the API boundary.
 
 ## Payment methods
 
@@ -105,8 +106,8 @@ no local model or migration is involved.
 
 ```ruby
 MolliePay.payment_methods                                   # all enabled methods
-MolliePay.payment_methods(amount: 1000)                     # filtered by amount (cents)
-MolliePay.payment_methods(amount: 1000, currency: "USD")    # with currency override
+MolliePay.payment_methods(amount: BigDecimal("10.00"))      # filtered by amount
+MolliePay.payment_methods(amount: BigDecimal("10.00"), currency: "USD") # with currency override
 MolliePay.payment_methods(locale: "nl_NL")                  # localized descriptions
 MolliePay.payment_methods(include: "pricing")               # include pricing details
 

@@ -22,7 +22,7 @@ module MolliePay
       assert_equal "invoice_new123", invoice.mollie_id
       assert_equal "issued", invoice.status
       assert_equal "INV-0000001", invoice.invoice_number
-      assert_equal 10769, invoice.amount
+      assert_equal BigDecimal("107.69"), invoice.amount
       assert_equal "EUR", invoice.currency
       assert_equal "cust-xyz", invoice.recipient_identifier
       assert_equal "Thank you", invoice.memo
@@ -50,7 +50,7 @@ module MolliePay
       existing.reload
       assert_equal "issued", existing.status
       assert_equal "INV-0000002", existing.invoice_number
-      assert_equal 5000, existing.amount
+      assert_equal BigDecimal("50.00"), existing.amount
     end
 
     test "record_from_mollie fires on_mollie_sales_invoice_paid on transition" do
@@ -233,11 +233,6 @@ module MolliePay
       issued = mollie_pay_sales_invoices(:acme_issued)
       assert issued.issued?
       assert_not issued.draft?
-    end
-
-    test "amount_decimal returns amount in decimal" do
-      invoice = mollie_pay_sales_invoices(:acme_issued)
-      assert_in_delta 107.69, invoice.amount_decimal, 0.001
     end
 
     test "mollie_amount returns formatted hash" do

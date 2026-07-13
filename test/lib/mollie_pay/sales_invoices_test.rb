@@ -10,7 +10,7 @@ class MolliePay::SalesInvoicesTest < ActiveSupport::TestCase
       MolliePay.create_sales_invoice(
         status: "issued",
         recipient: { type: "consumer", given_name: "Jane", family_name: "Doe", email: "jane@example.com" },
-        lines: [ { description: "Pro plan", quantity: 1, vat_rate: "21.00", unit_price: 8900 } ],
+        lines: [ { description: "Pro plan", quantity: 1, vat_rate: "21.00", unit_price: BigDecimal("89.00") } ],
         email_details: { subject: "Your invoice", body: "Please pay" }
       )
     end
@@ -22,7 +22,7 @@ class MolliePay::SalesInvoicesTest < ActiveSupport::TestCase
     assert received_options[:idempotency_key].present?
   end
 
-  test "create_sales_invoice converts line item unit_price from cents" do
+  test "create_sales_invoice converts line item unit_price to Mollie format" do
     received_data = nil
     fake_create = ->(data, _options) { received_data = data; fake_invoice }
 
@@ -30,7 +30,7 @@ class MolliePay::SalesInvoicesTest < ActiveSupport::TestCase
       MolliePay.create_sales_invoice(
         status: "draft",
         recipient: { type: "consumer", given_name: "Jane" },
-        lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 8900 } ]
+        lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: BigDecimal("89.00") } ]
       )
     end
 
@@ -70,7 +70,7 @@ class MolliePay::SalesInvoicesTest < ActiveSupport::TestCase
           city: "Amsterdam",
           country: "NL"
         },
-        lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 } ]
+        lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: BigDecimal("10.00") } ]
       )
     end
 
@@ -90,7 +90,7 @@ class MolliePay::SalesInvoicesTest < ActiveSupport::TestCase
       MolliePay.create_sales_invoice(
         status: "paid",
         recipient: { type: "consumer", given_name: "Jane" },
-        lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 } ],
+        lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: BigDecimal("10.00") } ],
         payment_term: "30 days",
         payment_details: { source: "manual" }
       )
@@ -155,7 +155,7 @@ class MolliePay::SalesInvoicesTest < ActiveSupport::TestCase
 
     Mollie::SalesInvoice.stub(:update, fake_update) do
       MolliePay.update_sales_invoice("invoice_abc123",
-        lines: [ { description: "New item", quantity: 2, vat_rate: "21.00", unit_price: 5000 } ]
+        lines: [ { description: "New item", quantity: 2, vat_rate: "21.00", unit_price: BigDecimal("50.00") } ]
       )
     end
 

@@ -17,10 +17,6 @@ module MolliePay
       assert_not mollie_pay_payments(:acme_first).recurring?
     end
 
-    test "amount_decimal converts cents" do
-      assert_equal 10.0, mollie_pay_payments(:acme_first).amount_decimal
-    end
-
     test "mollie_amount returns correct hash" do
       expected = { currency: "EUR", value: "10.00" }
       assert_equal expected, mollie_pay_payments(:acme_first).mollie_amount
@@ -48,7 +44,7 @@ module MolliePay
 
       assert_equal "tr_new123", payment.mollie_id
       assert_equal "open", payment.status
-      assert_equal 2500, payment.amount
+      assert_equal BigDecimal("25.00"), payment.amount
     end
 
     test "record_from_mollie updates existing payment" do
@@ -159,10 +155,10 @@ module MolliePay
       Chargeback.stub(:sync_for_payment, nil) do
         payment = Payment.record_from_mollie(mollie_payment)
 
-        assert_equal 1000, payment.amount_refunded
-        assert_equal 9000, payment.amount_remaining
-        assert_equal 10000, payment.amount_captured
-        assert_equal 500, payment.amount_charged_back
+        assert_equal BigDecimal("10.00"), payment.amount_refunded
+        assert_equal BigDecimal("90.00"), payment.amount_remaining
+        assert_equal BigDecimal("100.00"), payment.amount_captured
+        assert_equal BigDecimal("5.00"), payment.amount_charged_back
       end
     end
 
@@ -208,7 +204,7 @@ module MolliePay
       end
 
       assert sync_called, "Chargeback.sync_for_payment should be called when amount_charged_back changes"
-      assert_equal 500, existing.reload.amount_charged_back
+      assert_equal BigDecimal("5.00"), existing.reload.amount_charged_back
     end
 
     test "record_from_mollie does not trigger chargeback sync when amount_charged_back unchanged" do

@@ -6,6 +6,8 @@ module MolliePay
     belongs_to :customer
     has_many   :payments, dependent: :nullify
 
+    attribute :amount, :money
+
     validates :mollie_id, presence: true, uniqueness: true
     validates :status,    inclusion: { in: STATUSES }
     validates :amount,    presence: true, numericality: { greater_than: 0 }
@@ -28,7 +30,7 @@ module MolliePay
       attrs = {
         customer:    customer,
         status:      ms.status,
-        amount:      mollie_value_to_cents(ms.amount),
+        amount:      mollie_value_to_decimal(ms.amount),
         currency:    ms.amount.currency,
         interval:    ms.interval,
         canceled_at: ms.status == "canceled" && !subscription.canceled_at ? Time.current : subscription.canceled_at
@@ -66,10 +68,6 @@ module MolliePay
 
     def canceled?
       status == "canceled"
-    end
-
-    def amount_decimal
-      amount / 100.0
     end
   end
 end

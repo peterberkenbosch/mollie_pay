@@ -4,6 +4,8 @@ module MolliePay
 
     belongs_to :payment
 
+    attribute :amount, :money
+
     validates :mollie_id, presence: true, uniqueness: true
     validates :status,    inclusion: { in: STATUSES }
     validates :amount,    presence: true, numericality: { greater_than: 0 }
@@ -20,7 +22,7 @@ module MolliePay
       refund.update!(
         payment:     payment,
         status:      mr.status,
-        amount:      mollie_value_to_cents(mr.amount),
+        amount:      mollie_value_to_decimal(mr.amount),
         currency:    mr.amount.currency,
         refunded_at: mr.status == "refunded" && !refund.refunded_at ? Time.current : refund.refunded_at
       )
@@ -41,12 +43,8 @@ module MolliePay
       status == "refunded"
     end
 
-    def amount_decimal
-      amount / 100.0
-    end
-
     def mollie_amount
-      { currency: currency, value: format("%.2f", amount_decimal) }
+      { currency: currency, value: format("%.2f", amount) }
     end
   end
 end
