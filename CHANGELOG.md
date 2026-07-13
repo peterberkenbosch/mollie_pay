@@ -28,6 +28,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   database must either be recreated, or have each money column altered to `string` with
   its values converted from cents to decimal (`amount / 100.0`).
 
+## [0.5.0] - 2026-03-27
+
+### Added
+- Sales Invoices API (beta): `MolliePay.create_sales_invoice`, `sales_invoice`,
+  `sales_invoices`, `update_sales_invoice`, `delete_sales_invoice`; Billable
+  `mollie_create_sales_invoice` and `mollie_mark_invoice_paid`; a `SalesInvoice`
+  model synced via `record_from_mollie` with `issued`/`paid`/`overdue` scopes and
+  `on_mollie_sales_invoice_issued` / `on_mollie_sales_invoice_paid` hooks.
+- Next-Gen Webhooks: `/webhook_events` endpoint with HMAC-SHA256 signature
+  verification via `webhook_signing_secret` (accepts an array for rotation).
+- Mandates: `mollie_create_mandate` and `mollie_revoke_mandate` for direct SEPA
+  Direct Debit mandate management.
+- Customer operations: `mollie_update_customer` and `mollie_delete_customer`
+  (cascades to local records).
+- Subscriptions: `mollie_swap_subscription` for plan upgrade/downgrade via Mollie
+  PATCH, firing `on_mollie_subscription_swapped`.
+- Payments: `mollie_update_payment` and `mollie_cancel_payment`.
+- Payment methods: `MolliePay.payment_methods` and `MolliePay.payment_method`
+  (read-only listing with optional amount/currency/locale filters).
+- Chargebacks: a `Chargeback` model with automatic detection via payment webhooks
+  and `on_mollie_chargeback_received` / `on_mollie_chargeback_reversed` hooks.
+- Mollie API idempotency keys on all POST requests.
+
+### Changed
+- Test fixtures aligned with real Mollie API responses (camelCase JSON).
+- Dependency bumps: sqlite3, webmock.
+
+### Documentation
+- SEPA mandate consent and compliance guide (`docs/mandates.md`).
+- README slimmed with reference content moved into `docs/`.
+
 ## [0.4.0] - 2026-03-17
 
 ### Changed
