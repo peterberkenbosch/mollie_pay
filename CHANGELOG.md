@@ -3,6 +3,31 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.0] - 2026-07-13
+
+### Changed
+- **Breaking:** All monetary amounts are now exact `BigDecimal` instead of integer
+  cents, across the public interface and storage. Pass amounts as `BigDecimal`
+  (e.g. `BigDecimal("25.00")`) to `mollie_pay_once`, `mollie_pay_first`,
+  `mollie_subscribe`, `mollie_swap_subscription`, `mollie_refund`,
+  `MolliePay.payment_methods`, and sales-invoice `unit_price`. Every model amount
+  attribute now returns `BigDecimal`.
+- Money columns are stored as TEXT-affinity `:string` and cast via a registered
+  `:money` type (`MolliePay::DecimalMoneyType`); never `:decimal` (SQLite NUMERIC
+  affinity stores REAL/float and loses precision). Conversion to Mollie's decimal
+  string wire format happens only at the API boundary.
+- `ApplicationRecord.mollie_value_to_cents` renamed to `mollie_value_to_decimal`.
+
+### Removed
+- **Breaking:** `amount_decimal` on all models. Use `amount`, which is now `BigDecimal`.
+
+### Migration Required
+- Money columns changed from `integer` (cents) to `string` (exact BigDecimal as text).
+  This is a greenfield schema change with no data migration, consistent with ADR 003's
+  greenfield reset for `mollie_pay`. A fresh install needs no extra step. An existing
+  database must either be recreated, or have each money column altered to `string` with
+  its values converted from cents to decimal (`amount / 100.0`).
+
 ## [0.4.0] - 2026-03-17
 
 ### Changed
