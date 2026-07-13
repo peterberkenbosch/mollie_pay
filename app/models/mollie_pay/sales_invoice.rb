@@ -9,6 +9,8 @@ module MolliePay
 
     belongs_to :customer
 
+    attribute :amount, :money
+
     validates :mollie_id, presence: true, uniqueness: true
     validates :status,    inclusion: { in: STATUSES }
     validates :amount,    numericality: { greater_than: 0 }, allow_nil: true
@@ -23,14 +25,14 @@ module MolliePay
       invoice = find_or_initialize_by(mollie_id: mollie_si.id)
       previous_status = invoice.status
 
-      amount_cents = mollie_si.total_amount ? mollie_value_to_cents(mollie_si.total_amount) : nil
-      currency     = mollie_si.total_amount&.currency
+      amount   = mollie_si.total_amount ? mollie_value_to_decimal(mollie_si.total_amount) : nil
+      currency = mollie_si.total_amount&.currency
 
       invoice.update!(
         customer:             customer,
         status:               mollie_si.status,
         invoice_number:       mollie_si.invoice_number,
-        amount:               amount_cents,
+        amount:               amount,
         currency:             currency,
         recipient_identifier: mollie_si.recipient_identifier,
         memo:                 mollie_si.memo,
@@ -68,12 +70,8 @@ module MolliePay
       status == STATUS_CANCELED
     end
 
-    def amount_decimal
-      amount / 100.0
-    end
-
     def mollie_amount
-      { currency: currency, value: format("%.2f", amount_decimal) }
+      { currency: currency, value: format("%.2f", amount) }
     end
 
     private_class_method def self.notify_billable(invoice, previous_status)

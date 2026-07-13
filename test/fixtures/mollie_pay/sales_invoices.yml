@@ -8,7 +8,7 @@ acme_issued:
   mollie_id: invoice_issued456
   status: issued
   invoice_number: INV-0000001
-  amount: 10769
+  amount: "107.69"
   currency: EUR
   recipient_identifier: cust-xyz
   memo: Thank you

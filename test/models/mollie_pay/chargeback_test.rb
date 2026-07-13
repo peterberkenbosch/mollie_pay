@@ -27,7 +27,7 @@ module MolliePay
       duplicate = Chargeback.new(
         payment: existing.payment,
         mollie_id: existing.mollie_id,
-        amount: 500,
+        amount: BigDecimal("5.00"),
         currency: "EUR"
       )
       assert_not duplicate.valid?
@@ -51,7 +51,7 @@ module MolliePay
 
       chargeback = Chargeback.find_by(mollie_id: "chb_new123")
       assert_not_nil chargeback
-      assert_equal 1000, chargeback.amount
+      assert_equal BigDecimal("10.00"), chargeback.amount
       assert_equal "EUR", chargeback.currency
       assert_equal payment, chargeback.payment
     end
@@ -183,18 +183,13 @@ module MolliePay
 
       chargeback = Chargeback.find_by(mollie_id: "chb_ls7ahg")
       assert_not_nil chargeback
-      assert_equal 1000, chargeback.amount
+      assert_equal BigDecimal("10.00"), chargeback.amount
       assert_equal "EUR", chargeback.currency
       assert_equal payment, chargeback.payment
       assert_not_nil chargeback.created_at_mollie
       assert_equal "Insufficient funds (AM04)", chargeback.reason
       assert_not_nil hook_called_with
       assert_equal chargeback, hook_called_with
-    end
-
-    test "amount_decimal converts cents" do
-      chargeback = mollie_pay_chargebacks(:acme_chargeback)
-      assert_equal 5.0, chargeback.amount_decimal
     end
 
     test "mollie_amount returns correct hash" do

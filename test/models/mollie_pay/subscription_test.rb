@@ -10,10 +10,6 @@ module MolliePay
       assert_includes Subscription.active, mollie_pay_subscriptions(:acme_monthly)
     end
 
-    test "amount_decimal converts cents" do
-      assert_equal 25.0, mollie_pay_subscriptions(:acme_monthly).amount_decimal
-    end
-
     test "requires valid status" do
       sub = mollie_pay_subscriptions(:acme_monthly)
       sub.status = "nonsense"
@@ -42,7 +38,7 @@ module MolliePay
 
       assert_equal "sub_new456", subscription.mollie_id
       assert_equal "active", subscription.status
-      assert_equal 3000, subscription.amount
+      assert_equal BigDecimal("30.00"), subscription.amount
       assert_equal "1 month", subscription.interval
     end
 

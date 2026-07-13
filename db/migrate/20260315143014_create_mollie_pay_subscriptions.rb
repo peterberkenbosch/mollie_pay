@@ -5,7 +5,7 @@ class CreateMolliePaySubscriptions < ActiveRecord::Migration[8.1]
         foreign_key: { to_table: :mollie_pay_customers }
       t.string  :mollie_id, null: false, index: { unique: true }
       t.string  :status,    null: false, default: "pending"
-      t.integer :amount,    null: false
+      t.string  :amount,    null: false, default: "0" # BigDecimal money as text (see MolliePay::DecimalMoneyType)
       t.string  :currency,  null: false, default: "EUR"
       t.string  :interval,  null: false
       t.datetime :canceled_at

@@ -14,7 +14,7 @@ Rails 8.1+, Mollie-native.
 - **Hooks, not events.** Override plain Ruby methods in your model. No event bus, no pub/sub, no callbacks to register.
 - **Boring Rails.** Models do the work. No service objects, no form objects, no interactors.
 - **Idempotent.** Hooks fire only on actual state transitions. Duplicate webhooks are handled safely.
-- **Cents, not floats.** All amounts are stored as integers (cents). Conversion happens only at the Mollie API boundary.
+- **BigDecimal, never cents.** All amounts are exact `BigDecimal` (stored as text). Conversion to Mollie's wire format happens only at the API boundary.
 
 ## Installation
 
@@ -60,7 +60,7 @@ end
 
 ```ruby
 payment = current_organization.mollie_pay_first(
-  amount: 1000, description: "Activation fee"
+  amount: BigDecimal("10.00"), description: "Activation fee"
 )
 redirect_to payment.checkout_url
 ```
@@ -69,7 +69,7 @@ redirect_to payment.checkout_url
 
 ```ruby
 current_organization.mollie_subscribe(
-  amount: 2500, interval: "1 month", description: "Monthly plan"
+  amount: BigDecimal("25.00"), interval: "1 month", description: "Monthly plan"
 )
 ```
 
@@ -77,7 +77,7 @@ Named subscriptions for multiple concurrent plans:
 
 ```ruby
 current_organization.mollie_subscribe(
-  amount: 1000, interval: "1 month", description: "Analytics",
+  amount: BigDecimal("10.00"), interval: "1 month", description: "Analytics",
   name: "analytics_addon"
 )
 ```
@@ -86,7 +86,7 @@ current_organization.mollie_subscribe(
 
 ```ruby
 payment = current_organization.mollie_pay_once(
-  amount: 7500, description: "Extra service"
+  amount: BigDecimal("75.00"), description: "Extra service"
 )
 redirect_to payment.checkout_url
 ```
@@ -94,9 +94,9 @@ redirect_to payment.checkout_url
 ### Upgrade or downgrade
 
 ```ruby
-current_organization.mollie_swap_subscription(amount: 4999)
-current_organization.mollie_swap_subscription(amount: 4999, interval: "1 year")
-current_organization.mollie_swap_subscription(name: "analytics_addon", amount: 1999)
+current_organization.mollie_swap_subscription(amount: BigDecimal("49.99"))
+current_organization.mollie_swap_subscription(amount: BigDecimal("49.99"), interval: "1 year")
+current_organization.mollie_swap_subscription(name: "analytics_addon", amount: BigDecimal("19.99"))
 ```
 
 Changes take effect on the next billing cycle. See [docs/api.md](docs/api.md)
@@ -141,14 +141,14 @@ current_organization.mollie_cancel_subscription
 current_organization.mollie_cancel_payment(payment)
 current_organization.mollie_update_payment(payment, description: "Updated")
 current_organization.mollie_refund(payment)              # full
-current_organization.mollie_refund(payment, amount: 500) # partial
+current_organization.mollie_refund(payment, amount: BigDecimal("5.00")) # partial
 ```
 
 ### Payment methods
 
 ```ruby
 MolliePay.payment_methods                        # all enabled methods
-MolliePay.payment_methods(amount: 1000)          # filtered by amount (cents)
+MolliePay.payment_methods(amount: BigDecimal("10.00")) # filtered by amount
 MolliePay.payment_method("ideal")                # single method details
 ```
 
@@ -160,13 +160,13 @@ No local model is stored — all data lives on Mollie's side.
 ```ruby
 # Create a draft invoice
 invoice = current_organization.mollie_create_sales_invoice(
-  lines: [{ description: "Pro plan", quantity: 1, vat_rate: "21.00", unit_price: 8900 }]
+  lines: [{ description: "Pro plan", quantity: 1, vat_rate: "21.00", unit_price: BigDecimal("89.00") }]
 )
 
 # Create and send immediately
 invoice = current_organization.mollie_create_sales_invoice(
   status: "issued",
-  lines: [{ description: "Pro plan", quantity: 1, vat_rate: "21.00", unit_price: 8900 }],
+  lines: [{ description: "Pro plan", quantity: 1, vat_rate: "21.00", unit_price: BigDecimal("89.00") }],
   email_details: { subject: "Your invoice", body: "Please pay within 30 days" }
 )
 
@@ -174,7 +174,7 @@ invoice = current_organization.mollie_create_sales_invoice(
 invoice = MolliePay.create_sales_invoice(
   status: "draft",
   recipient: { type: "business", organization_name: "Acme B.V.", email: "billing@acme.nl" },
-  lines: [{ description: "Consulting", quantity: 10, vat_rate: "21.00", unit_price: 15000 }],
+  lines: [{ description: "Consulting", quantity: 10, vat_rate: "21.00", unit_price: BigDecimal("150.00") }],
   payment_term: "30 days",
   memo: "Thank you for your business!"
 )
@@ -186,7 +186,7 @@ MolliePay.update_sales_invoice("invoice_abc123", memo: "Updated memo")
 MolliePay.delete_sales_invoice("invoice_abc123")  # draft only
 ```
 
-Line item `unit_price` accepts cents (integer) and is converted automatically.
+Line item `unit_price` accepts a `BigDecimal` and is converted automatically.
 The Billable convenience method auto-populates the recipient from your model's
 `name` and `email` attributes.
 
@@ -270,7 +270,7 @@ end
 
 ```ruby
 stub_mollie_payment_create do
-  payment = @org.mollie_pay_once(amount: 5000, description: "Test")
+  payment = @org.mollie_pay_once(amount: BigDecimal("50.00"), description: "Test")
   assert_equal "open", payment.status
 end
 ```

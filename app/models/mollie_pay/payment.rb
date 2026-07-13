@@ -8,6 +8,12 @@ module MolliePay
     has_many   :refunds,      dependent: :destroy
     has_many   :chargebacks,  dependent: :destroy
 
+    attribute :amount,              :money
+    attribute :amount_refunded,     :money
+    attribute :amount_remaining,    :money
+    attribute :amount_captured,     :money
+    attribute :amount_charged_back, :money
+
     # amount_remaining uses nil-semantics: nil = "never fetched from Mollie",
     # 0 = "fully captured/refunded". Only populated when Mollie includes the field.
 
@@ -39,7 +45,7 @@ module MolliePay
       payment.update!(
         customer:            customer,
         status:              mp.status,
-        amount:              mollie_value_to_cents(mp.amount),
+        amount:              mollie_value_to_decimal(mp.amount),
         currency:            mp.amount.currency,
         sequence_type:       mp.sequence_type.presence || "oneoff",
         paid_at:             mp.status == "paid" && !payment.paid_at ? Time.current : payment.paid_at,
@@ -47,10 +53,10 @@ module MolliePay
         failed_at:           mp.status == "failed" && !payment.failed_at ? Time.current : payment.failed_at,
         canceled_at:         mp.status == "canceled" && !payment.canceled_at ? Time.current : payment.canceled_at,
         expired_at:          mp.status == "expired" && !payment.expired_at ? Time.current : payment.expired_at,
-        amount_refunded:     mp.amount_refunded ? mollie_value_to_cents(mp.amount_refunded) : payment.amount_refunded,
-        amount_remaining:    mp.amount_remaining ? mollie_value_to_cents(mp.amount_remaining) : payment.amount_remaining,
-        amount_captured:     mp.amount_captured ? mollie_value_to_cents(mp.amount_captured) : payment.amount_captured,
-        amount_charged_back: mp.amount_charged_back ? mollie_value_to_cents(mp.amount_charged_back) : payment.amount_charged_back
+        amount_refunded:     mp.amount_refunded ? mollie_value_to_decimal(mp.amount_refunded) : payment.amount_refunded,
+        amount_remaining:    mp.amount_remaining ? mollie_value_to_decimal(mp.amount_remaining) : payment.amount_remaining,
+        amount_captured:     mp.amount_captured ? mollie_value_to_decimal(mp.amount_captured) : payment.amount_captured,
+        amount_charged_back: mp.amount_charged_back ? mollie_value_to_decimal(mp.amount_charged_back) : payment.amount_charged_back
       )
 
       payment.notify_billable(mp) if payment.status != previous_status
@@ -100,13 +106,9 @@ module MolliePay
       sequence_type == "recurring"
     end
 
-    def amount_decimal
-      amount / 100.0
-    end
-
     # Mollie expects amount as { currency: "EUR", value: "10.00" }
     def mollie_amount
-      { currency: currency, value: format("%.2f", amount_decimal) }
+      { currency: currency, value: format("%.2f", amount) }
     end
   end
 end

@@ -365,7 +365,7 @@ class PaymentsController < ApplicationController
   end
 
   def create
-    amount      = params.expect(:amount).to_i
+    amount      = params.expect(:amount).to_d
     description = params.expect(:description)
 
     payment = Current.user.mollie_pay_once(
@@ -400,9 +400,9 @@ end
 
   <%= form_with url: payments_path, method: :post, data: { turbo: false }, class: "space-y-4" do |form| %>
     <div>
-      <%= form.label :amount, "Amount (in cents)",
+      <%= form.label :amount, "Amount (EUR)",
             class: "block text-sm font-medium text-gray-700 mb-1" %>
-      <%= form.number_field :amount, value: 1000, min: 100, step: 100,
+      <%= form.number_field :amount, value: 10.00, min: 1, step: 0.01,
             class: "w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" %>
       <p class="text-xs text-gray-500 mt-1">e.g. 1000 = €10.00</p>
     </div>
@@ -435,7 +435,7 @@ end
     </div>
     <div class="flex justify-between">
       <span class="text-sm text-gray-500">Amount</span>
-      <span class="font-medium">€<%= format("%.2f", @payment.amount_decimal) %></span>
+      <span class="font-medium">€<%= format("%.2f", @payment.amount) %></span>
     </div>
     <div class="flex justify-between">
       <span class="text-sm text-gray-500">Created</span>
@@ -548,8 +548,8 @@ class PricingController < ApplicationController
   allow_unauthenticated_access only: :show
 
   PLANS = {
-    "monthly" => { amount: 2500,  interval: "1 month",   label: "Monthly",  price: "€25/month" },
-    "yearly"  => { amount: 25000, interval: "12 months", label: "Yearly",   price: "€250/year (save €50)" }
+    "monthly" => { amount: BigDecimal("25.00"),  interval: "1 month",   label: "Monthly",  price: "€25/month" },
+    "yearly"  => { amount: BigDecimal("250.00"), interval: "12 months", label: "Yearly",   price: "€250/year (save €50)" }
   }.freeze
 
   def show
@@ -636,7 +636,7 @@ class SubscriptionSetupsController < ApplicationController
     # Create a first payment to establish the mandate
     # Using €0.01 — the minimum amount Mollie accepts
     payment = Current.user.mollie_pay_first(
-      amount:      1,
+      amount:      BigDecimal("0.01"),
       description: "Payment method setup for #{PricingController::PLANS[plan][:label]} plan"
     )
 
@@ -789,7 +789,7 @@ end
           </div>
           <div class="flex justify-between">
             <span class="text-sm text-gray-500">Amount</span>
-            <span class="font-medium">€<%= format("%.2f", @subscription.amount_decimal) %> / <%= @subscription.interval %></span>
+            <span class="font-medium">€<%= format("%.2f", @subscription.amount) %> / <%= @subscription.interval %></span>
           </div>
         </div>
 
@@ -852,7 +852,7 @@ end
               <tr>
                 <td class="px-6 py-4 text-sm text-gray-700"><%= payment.created_at.strftime("%d %b %Y") %></td>
                 <td class="px-6 py-4 text-sm font-mono text-gray-500"><%= payment.mollie_id %></td>
-                <td class="px-6 py-4 text-sm text-gray-700 text-right">€<%= format("%.2f", payment.amount_decimal) %></td>
+                <td class="px-6 py-4 text-sm text-gray-700 text-right">€<%= format("%.2f", payment.amount) %></td>
                 <td class="px-6 py-4 text-sm"><%= payment.status %></td>
                 <td class="px-6 py-4 text-sm text-right">
                   <%= link_to "View", payment_path(payment), class: "text-indigo-600 hover:underline" %>
@@ -1131,8 +1131,8 @@ You will need a helper method to compute the next period start date. Add to your
 
 ```ruby
 PLANS = {
-  "monthly" => { label: "Monthly", amount: 2500, interval: "1 month", interval_duration: 1.month },
-  "yearly"  => { label: "Yearly",  amount: 25000, interval: "12 months", interval_duration: 1.year }
+  "monthly" => { label: "Monthly", amount: BigDecimal("25.00"), interval: "1 month", interval_duration: 1.month },
+  "yearly"  => { label: "Yearly",  amount: BigDecimal("250.00"), interval: "12 months", interval_duration: 1.year }
 }.freeze
 ```
 

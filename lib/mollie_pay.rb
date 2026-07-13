@@ -4,6 +4,7 @@ require "mollie_pay/version"
 require "mollie_pay/errors"
 require "mollie_pay/configuration"
 require "mollie_pay/webhook_signature"
+require "mollie_pay/decimal_money_type"
 require "mollie_pay/engine"
 
 module MolliePay
@@ -11,15 +12,15 @@ module MolliePay
   # Returns Mollie SDK objects directly (Mollie::List of Mollie::Method).
   #
   #   MolliePay.payment_methods
-  #   MolliePay.payment_methods(amount: 1000, locale: "nl_NL")
-  #   MolliePay.payment_methods(amount: 1000, currency: "EUR", include: "pricing")
+  #   MolliePay.payment_methods(amount: BigDecimal("10.00"), locale: "nl_NL")
+  #   MolliePay.payment_methods(amount: BigDecimal("10.00"), currency: "EUR", include: "pricing")
   #
   def self.payment_methods(amount: nil, currency: nil, locale: nil, **options)
     params = options
     if amount
       params[:amount] = {
         currency: currency || configuration.currency,
-        value:    format("%.2f", amount / 100.0)
+        value:    format("%.2f", amount)
       }
     end
     params[:locale] = locale if locale
@@ -38,12 +39,12 @@ module MolliePay
 
   # Create a sales invoice on Mollie (beta).
   # Accepts snake_case Ruby hashes — keys are camelized before sending.
-  # Line item unit_price accepts cents (integer) and is converted to Mollie format.
+  # Line item unit_price accepts a BigDecimal and is converted to Mollie format.
   #
   #   MolliePay.create_sales_invoice(
   #     status: "issued",
   #     recipient: { type: "consumer", given_name: "Jane", family_name: "Doe", email: "jane@example.com" },
-  #     lines: [{ description: "Pro plan", quantity: 1, vat_rate: "21.00", unit_price: 8900 }],
+  #     lines: [{ description: "Pro plan", quantity: 1, vat_rate: "21.00", unit_price: BigDecimal("89.00") }],
   #     email_details: { subject: "Your invoice", body: "Please pay" }
   #   )
   #
@@ -92,10 +93,10 @@ module MolliePay
 
   def self.build_sales_invoice_line(line)
     built = deep_camelize_keys(line)
-    if built[:unitPrice].is_a?(Integer)
+    if built[:unitPrice].is_a?(Numeric)
       built[:unitPrice] = {
         currency: configuration.currency,
-        value:    format("%.2f", built[:unitPrice] / 100.0)
+        value:    format("%.2f", built[:unitPrice])
       }
     end
     built

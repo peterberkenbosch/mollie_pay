@@ -44,14 +44,14 @@ module MolliePay
     test "mollie_pay_once creates a one-off payment with checkout_url" do
       stub_mollie_payment_create(id: "tr_oneoff_new") do
         payment = @org.mollie_pay_once(
-          amount: 5000,
+          amount: BigDecimal("50.00"),
           description: "One-off charge",
           redirect_url: "https://example.com/return"
         )
 
         assert_equal "tr_oneoff_new", payment.mollie_id
         assert_equal "open", payment.status
-        assert_equal 5000, payment.amount
+        assert_equal BigDecimal("50.00"), payment.amount
         assert_equal "oneoff", payment.sequence_type
         assert_equal @org.mollie_customer, payment.customer
         assert payment.checkout_url.present?
@@ -61,14 +61,14 @@ module MolliePay
     test "mollie_pay_first creates a first payment with checkout_url" do
       stub_mollie_payment_create(id: "tr_first_new") do
         payment = @org.mollie_pay_first(
-          amount: 1000,
+          amount: BigDecimal("10.00"),
           description: "Setup fee",
           redirect_url: "https://example.com/return"
         )
 
         assert_equal "tr_first_new", payment.mollie_id
         assert_equal "open", payment.status
-        assert_equal 1000, payment.amount
+        assert_equal BigDecimal("10.00"), payment.amount
         assert_equal "first", payment.sequence_type
         assert payment.checkout_url.present?
       end
@@ -82,7 +82,7 @@ module MolliePay
       fake_create = ->(**args) { passed_redirect_url = args[:redirectUrl]; response }
 
       Mollie::Payment.stub(:create, fake_create) do
-        payment = @org.mollie_pay_once(amount: 3000, description: "Default redirect")
+        payment = @org.mollie_pay_once(amount: BigDecimal("30.00"), description: "Default redirect")
 
         assert_equal "tr_default_redir", payment.mollie_id
         assert payment.checkout_url.present?
@@ -101,7 +101,7 @@ module MolliePay
 
       Mollie::Payment.stub(:create, fake_create) do
         @org.mollie_pay_once(
-          amount: 2000,
+          amount: BigDecimal("20.00"),
           description: "Override redirect",
           redirect_url: "https://example.com/custom-return"
         )
@@ -119,7 +119,7 @@ module MolliePay
 
       Mollie::Payment.stub(:create, fake_create) do
         @org.mollie_pay_once(
-          amount: 3000,
+          amount: BigDecimal("30.00"),
           description: "iDEAL payment",
           redirect_url: "https://example.com/return",
           method: "ideal"
@@ -136,7 +136,7 @@ module MolliePay
 
       Mollie::Payment.stub(:create, fake_create) do
         @org.mollie_pay_first(
-          amount: 1000,
+          amount: BigDecimal("10.00"),
           description: "First iDEAL",
           redirect_url: "https://example.com/return",
           method: "ideal"
@@ -154,7 +154,7 @@ module MolliePay
 
       Mollie::Payment.stub(:create, fake_create) do
         @org.mollie_pay_once(
-          amount: 3000,
+          amount: BigDecimal("30.00"),
           description: "No method specified",
           redirect_url: "https://example.com/return"
         )
@@ -170,7 +170,7 @@ module MolliePay
 
       Mollie::Payment.stub(:create, fake_create) do
         @org.mollie_pay_once(
-          amount: 3000,
+          amount: BigDecimal("30.00"),
           description: "With metadata",
           redirect_url: "https://example.com/return",
           metadata: { plan: "yearly", source: "checkout" }
@@ -187,7 +187,7 @@ module MolliePay
 
       Mollie::Payment.stub(:create, fake_create) do
         @org.mollie_pay_first(
-          amount: 1000,
+          amount: BigDecimal("10.00"),
           description: "First with metadata",
           redirect_url: "https://example.com/return",
           metadata: { plan: "monthly" }
@@ -205,7 +205,7 @@ module MolliePay
 
       Mollie::Payment.stub(:create, fake_create) do
         @org.mollie_pay_once(
-          amount: 3000,
+          amount: BigDecimal("30.00"),
           description: "No metadata",
           redirect_url: "https://example.com/return"
         )
@@ -218,7 +218,7 @@ module MolliePay
       MolliePay.configuration.default_redirect_path = nil
 
       assert_raises(MolliePay::ConfigurationError) do
-        @org.mollie_pay_once(amount: 1000, description: "No redirect")
+        @org.mollie_pay_once(amount: BigDecimal("10.00"), description: "No redirect")
       end
     end
 
@@ -226,7 +226,7 @@ module MolliePay
       MolliePay.configuration.default_redirect_path = nil
 
       assert_raises(MolliePay::ConfigurationError) do
-        @org.mollie_pay_once(amount: 1000, description: "Blank redirect", redirect_url: "")
+        @org.mollie_pay_once(amount: BigDecimal("10.00"), description: "Blank redirect", redirect_url: "")
       end
     end
 
@@ -239,7 +239,7 @@ module MolliePay
         payment_overrides:  { id: "tr_fresh_pay" }
       ) do
         payment = org.mollie_pay_once(
-          amount: 2500,
+          amount: BigDecimal("25.00"),
           description: "First charge",
           redirect_url: "https://example.com/return"
         )
@@ -268,10 +268,10 @@ module MolliePay
       payment = mollie_pay_payments(:acme_oneoff)
 
       stub_mollie_refund_create(id: "re_partial123") do
-        refund = @org.mollie_refund(payment, amount: 2500)
+        refund = @org.mollie_refund(payment, amount: BigDecimal("25.00"))
 
         assert_equal "re_partial123", refund.mollie_id
-        assert_equal 2500, refund.amount
+        assert_equal BigDecimal("25.00"), refund.amount
       end
     end
 
@@ -280,7 +280,7 @@ module MolliePay
       assert_equal "active", existing.status
 
       result = @org.mollie_subscribe(
-        amount: 5000,
+        amount: BigDecimal("50.00"),
         interval: "1 year",
         description: "Different plan"
       )
@@ -293,7 +293,7 @@ module MolliePay
       subscription.update!(status: "pending")
 
       result = @org.mollie_subscribe(
-        amount: 2500,
+        amount: BigDecimal("25.00"),
         interval: "1 month",
         description: "Monthly plan"
       )
@@ -306,7 +306,7 @@ module MolliePay
 
       stub_mollie_subscription_create(id: "sub_after_cancel") do
         subscription = @org.mollie_subscribe(
-          amount: 2500,
+          amount: BigDecimal("25.00"),
           interval: "1 month",
           description: "Re-subscribe"
         )
@@ -319,7 +319,7 @@ module MolliePay
     test "mollie_subscribe raises without mandate" do
       org = Organization.create!(name: "New Org", email: "new@org.nl")
       assert_raises(MolliePay::MandateRequired) do
-        org.mollie_subscribe(amount: 2500, interval: "1 month", description: "Plan")
+        org.mollie_subscribe(amount: BigDecimal("25.00"), interval: "1 month", description: "Plan")
       end
     end
 
@@ -328,14 +328,14 @@ module MolliePay
 
       stub_mollie_subscription_create(id: "sub_new123") do
         subscription = @org.mollie_subscribe(
-          amount: 2500,
+          amount: BigDecimal("25.00"),
           interval: "1 month",
           description: "Monthly plan"
         )
 
         assert_equal "sub_new123", subscription.mollie_id
         assert_equal "active", subscription.status
-        assert_equal 2500, subscription.amount
+        assert_equal BigDecimal("25.00"), subscription.amount
         assert_equal "1 month", subscription.interval
       end
     end
@@ -349,7 +349,7 @@ module MolliePay
 
       Mollie::Customer::Subscription.stub(:create, fake_create) do
         @org.mollie_subscribe(
-          amount: 2500,
+          amount: BigDecimal("25.00"),
           interval: "1 month",
           description: "API class test"
         )
@@ -373,7 +373,7 @@ module MolliePay
       Mollie::Customer::Subscription.stub(:create, response) do
         # Stub the wrong class to detect if it's called
         Mollie::Subscription.stub(:create, top_level_create) do
-          @org.mollie_subscribe(amount: 2500, interval: "1 month", description: "Test")
+          @org.mollie_subscribe(amount: BigDecimal("25.00"), interval: "1 month", description: "Test")
         end
       end
 
@@ -516,7 +516,7 @@ module MolliePay
     test "mollie_subscribe creates named subscription" do
       stub_mollie_subscription_create(id: "sub_new_addon") do
         subscription = @org.mollie_subscribe(
-          amount: 1000,
+          amount: BigDecimal("10.00"),
           interval: "1 month",
           description: "Analytics addon",
           name: "reporting"
@@ -534,7 +534,7 @@ module MolliePay
 
       Mollie::Customer::Subscription.stub(:create, fake_create) do
         @org.mollie_subscribe(
-          amount: 1000,
+          amount: BigDecimal("10.00"),
           interval: "1 month",
           description: "With metadata",
           name: "reporting"
@@ -552,7 +552,7 @@ module MolliePay
       # Creating a new name should work (not return existing default)
       stub_mollie_subscription_create(id: "sub_new_name") do
         subscription = @org.mollie_subscribe(
-          amount: 500,
+          amount: BigDecimal("5.00"),
           interval: "1 month",
           description: "New addon",
           name: "reporting"
@@ -568,7 +568,7 @@ module MolliePay
       assert_equal "analytics_addon", existing.name
 
       result = @org.mollie_subscribe(
-        amount: 9999,
+        amount: BigDecimal("99.99"),
         interval: "1 year",
         description: "Different params",
         name: "analytics_addon"
@@ -614,14 +614,14 @@ module MolliePay
 
     test "mollie_swap_subscription updates amount on active subscription" do
       subscription = mollie_pay_subscriptions(:acme_monthly)
-      assert_equal 2500, subscription.amount
+      assert_equal BigDecimal("25.00"), subscription.amount
 
       stub_mollie_subscription_update do
-        result = @org.mollie_swap_subscription(amount: 4999)
+        result = @org.mollie_swap_subscription(amount: BigDecimal("49.99"))
         assert_equal subscription, result
       end
 
-      assert_equal 4999, subscription.reload.amount
+      assert_equal BigDecimal("49.99"), subscription.reload.amount
       assert_equal "1 month", subscription.interval
     end
 
@@ -633,17 +633,17 @@ module MolliePay
       end
 
       assert_equal "1 year", subscription.reload.interval
-      assert_equal 2500, subscription.amount
+      assert_equal BigDecimal("25.00"), subscription.amount
     end
 
     test "mollie_swap_subscription updates both amount and interval" do
       subscription = mollie_pay_subscriptions(:acme_monthly)
 
       stub_mollie_subscription_update do
-        @org.mollie_swap_subscription(amount: 9999, interval: "1 year")
+        @org.mollie_swap_subscription(amount: BigDecimal("99.99"), interval: "1 year")
       end
 
-      assert_equal 9999, subscription.reload.amount
+      assert_equal BigDecimal("99.99"), subscription.reload.amount
       assert_equal "1 year", subscription.interval
     end
 
@@ -653,7 +653,7 @@ module MolliePay
       fake_update = ->(id, **params) { received_params = params; OpenStruct.new(id: id, status: "active") }
 
       Mollie::Customer::Subscription.stub(:update, fake_update) do
-        @org.mollie_swap_subscription(amount: 4999)
+        @org.mollie_swap_subscription(amount: BigDecimal("49.99"))
       end
 
       assert_equal({ currency: "EUR", value: "49.99" }, received_params[:amount])
@@ -676,19 +676,19 @@ module MolliePay
     test "mollie_swap_subscription raises when no active subscription" do
       org = Organization.create!(name: "New Org", email: "new@org.nl")
       assert_raises(MolliePay::SubscriptionNotFound) do
-        org.mollie_swap_subscription(amount: 4999)
+        org.mollie_swap_subscription(amount: BigDecimal("49.99"))
       end
     end
 
     test "mollie_swap_subscription works with named subscriptions" do
       addon = mollie_pay_subscriptions(:acme_addon)
-      assert_equal 1000, addon.amount
+      assert_equal BigDecimal("10.00"), addon.amount
 
       stub_mollie_subscription_update do
-        @org.mollie_swap_subscription(name: "analytics_addon", amount: 1999)
+        @org.mollie_swap_subscription(name: "analytics_addon", amount: BigDecimal("19.99"))
       end
 
-      assert_equal 1999, addon.reload.amount
+      assert_equal BigDecimal("19.99"), addon.reload.amount
     end
 
     test "mollie_swap_subscription fires on_mollie_subscription_swapped hook" do
@@ -706,12 +706,12 @@ module MolliePay
       end
 
       stub_mollie_subscription_update do
-        @org.mollie_swap_subscription(amount: 4999, interval: "1 year")
+        @org.mollie_swap_subscription(amount: BigDecimal("49.99"), interval: "1 year")
       end
 
       assert hook_called, "on_mollie_subscription_swapped should have been called"
       assert_equal subscription, hook_sub
-      assert_equal 2500, hook_prev_amount
+      assert_equal BigDecimal("25.00"), hook_prev_amount
       assert_equal "1 month", hook_prev_interval
     end
 
@@ -719,7 +719,7 @@ module MolliePay
       hook_called = false
       @org.define_singleton_method(:on_mollie_subscription_swapped) { |*, **| hook_called = true }
 
-      result = @org.mollie_swap_subscription(amount: 2500)
+      result = @org.mollie_swap_subscription(amount: BigDecimal("25.00"))
 
       assert_not hook_called, "Hook should not fire when nothing changed"
     end
@@ -729,18 +729,18 @@ module MolliePay
       subscription.update!(status: "pending")
 
       stub_mollie_subscription_update do
-        result = @org.mollie_swap_subscription(amount: 4999)
+        result = @org.mollie_swap_subscription(amount: BigDecimal("49.99"))
         assert_equal subscription, result
       end
 
-      assert_equal 4999, subscription.reload.amount
+      assert_equal BigDecimal("49.99"), subscription.reload.amount
     end
 
     test "mollie_swap_subscription does not find suspended subscriptions" do
       mollie_pay_subscriptions(:acme_monthly).update!(status: "suspended")
 
       assert_raises(MolliePay::SubscriptionNotFound) do
-        @org.mollie_swap_subscription(amount: 4999)
+        @org.mollie_swap_subscription(amount: BigDecimal("49.99"))
       end
     end
 
@@ -752,7 +752,7 @@ module MolliePay
       fake_create = ->(**args) { received_args = args; response }
 
       Mollie::Payment.stub(:create, fake_create) do
-        @org.mollie_pay_once(amount: 1000, description: "Test", redirect_url: "https://example.com/return")
+        @org.mollie_pay_once(amount: BigDecimal("10.00"), description: "Test", redirect_url: "https://example.com/return")
       end
 
       assert received_args[:idempotency_key].present?, "idempotency_key should be present"
@@ -765,7 +765,7 @@ module MolliePay
       fake_create = ->(**args) { received_args = args; response }
 
       Mollie::Payment.stub(:create, fake_create) do
-        @org.mollie_pay_first(amount: 1000, description: "Test", redirect_url: "https://example.com/return")
+        @org.mollie_pay_first(amount: BigDecimal("10.00"), description: "Test", redirect_url: "https://example.com/return")
       end
 
       assert received_args[:idempotency_key].present?
@@ -780,7 +780,7 @@ module MolliePay
       fake_create = ->(**args) { received_args = args; response }
 
       Mollie::Customer::Subscription.stub(:create, fake_create) do
-        @org.mollie_subscribe(amount: 2500, interval: "1 month", description: "Test")
+        @org.mollie_subscribe(amount: BigDecimal("25.00"), interval: "1 month", description: "Test")
       end
 
       assert received_args[:idempotency_key].present?
@@ -894,7 +894,7 @@ module MolliePay
       other_customer = MolliePay::Customer.create!(mollie_id: "cst_other_upd", owner: other_org)
       other_payment = MolliePay::Payment.create!(
         customer: other_customer, mollie_id: "tr_other_upd",
-        status: "open", amount: 5000, currency: "EUR", sequence_type: "oneoff"
+        status: "open", amount: BigDecimal("50.00"), currency: "EUR", sequence_type: "oneoff"
       )
 
       assert_raises(MolliePay::Error) do
@@ -947,7 +947,7 @@ module MolliePay
       other_customer = MolliePay::Customer.create!(mollie_id: "cst_other_can", owner: other_org)
       other_payment = MolliePay::Payment.create!(
         customer: other_customer, mollie_id: "tr_other_can",
-        status: "open", amount: 5000, currency: "EUR", sequence_type: "oneoff"
+        status: "open", amount: BigDecimal("50.00"), currency: "EUR", sequence_type: "oneoff"
       )
 
       assert_raises(MolliePay::Error) do
@@ -1047,7 +1047,7 @@ module MolliePay
 
       MolliePay.stub(:create_sales_invoice, mollie_response) do
         invoice = @org.mollie_create_sales_invoice(
-          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 } ]
+          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: BigDecimal("10.00") } ]
         )
 
         assert_instance_of MolliePay::SalesInvoice, invoice
@@ -1068,7 +1068,7 @@ module MolliePay
 
       MolliePay.stub(:create_sales_invoice, fake_create) do
         @org.mollie_create_sales_invoice(
-          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 } ]
+          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: BigDecimal("10.00") } ]
         )
       end
 
@@ -1088,7 +1088,7 @@ module MolliePay
 
       MolliePay.stub(:create_sales_invoice, fake_create) do
         @org.mollie_create_sales_invoice(
-          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 } ],
+          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: BigDecimal("10.00") } ],
           recipient: explicit
         )
       end
@@ -1106,7 +1106,7 @@ module MolliePay
       MolliePay.stub(:create_sales_invoice, mollie_response) do
         @org.mollie_create_sales_invoice(
           status: "issued",
-          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: 1000 } ]
+          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: BigDecimal("10.00") } ]
         )
       end
 
@@ -1194,7 +1194,7 @@ module MolliePay
         customer: other_customer,
         mollie_id: "tr_other",
         status: "paid",
-        amount: 5000,
+        amount: BigDecimal("50.00"),
         currency: "EUR",
         sequence_type: "oneoff",
         paid_at: Time.current

@@ -10,7 +10,7 @@ module MolliePay
 
     test "stub_mollie_payment_create stubs payment creation" do
       stub_mollie_payment_create do
-        payment = @org.mollie_pay_once(amount: 5000, description: "Test", redirect_url: "https://example.com/return")
+        payment = @org.mollie_pay_once(amount: BigDecimal("50.00"), description: "Test", redirect_url: "https://example.com/return")
 
         assert_equal "open", payment.status
         assert payment.checkout_url.present?
@@ -19,7 +19,7 @@ module MolliePay
 
     test "stub_mollie_payment_create accepts overrides" do
       stub_mollie_payment_create(id: "tr_custom", status: "open") do
-        payment = @org.mollie_pay_once(amount: 1000, description: "Custom", redirect_url: "https://example.com/return")
+        payment = @org.mollie_pay_once(amount: BigDecimal("10.00"), description: "Custom", redirect_url: "https://example.com/return")
 
         assert_equal "tr_custom", payment.mollie_id
       end
@@ -29,7 +29,7 @@ module MolliePay
       org = Organization.create!(name: "New", email: "new@test.nl")
 
       stub_mollie_customer_and_payment_create do
-        payment = org.mollie_pay_once(amount: 1000, description: "First", redirect_url: "https://example.com/return")
+        payment = org.mollie_pay_once(amount: BigDecimal("10.00"), description: "First", redirect_url: "https://example.com/return")
 
         assert org.reload.mollie_customer.present?
         assert payment.checkout_url.present?
@@ -38,7 +38,7 @@ module MolliePay
 
     test "stub_mollie_subscription_create stubs subscription creation" do
       stub_mollie_subscription_create do
-        subscription = @org.mollie_subscribe(amount: 2500, interval: "1 month", description: "Monthly")
+        subscription = @org.mollie_subscribe(amount: BigDecimal("25.00"), interval: "1 month", description: "Monthly")
 
         assert_equal "active", subscription.status
       end
@@ -66,18 +66,18 @@ module MolliePay
 
     test "webmock_mollie_payment_create exercises full SDK pipeline" do
       webmock_mollie_payment_create do
-        payment = @org.mollie_pay_once(amount: 1000, description: "WebMock test", redirect_url: "https://example.com/return")
+        payment = @org.mollie_pay_once(amount: BigDecimal("10.00"), description: "WebMock test", redirect_url: "https://example.com/return")
 
         assert_equal "tr_test1234AB", payment.mollie_id
         assert_equal "open", payment.status
-        assert_equal 1000, payment.amount
+        assert_equal BigDecimal("10.00"), payment.amount
         assert_equal "https://www.mollie.com/payscreen/select-method/test1234AB", payment.checkout_url
       end
     end
 
     test "webmock_mollie_payment_create accepts overrides" do
       webmock_mollie_payment_create(id: "tr_custom99", status: "open", amount_value: "50.00") do
-        payment = @org.mollie_pay_once(amount: 5000, description: "Custom", redirect_url: "https://example.com/return")
+        payment = @org.mollie_pay_once(amount: BigDecimal("50.00"), description: "Custom", redirect_url: "https://example.com/return")
 
         assert_equal "tr_custom99", payment.mollie_id
       end
@@ -87,7 +87,7 @@ module MolliePay
       org = Organization.create!(name: "WebMock Org", email: "wm@test.nl")
 
       webmock_mollie_customer_and_payment_create do
-        payment = org.mollie_pay_once(amount: 2000, description: "Full pipeline", redirect_url: "https://example.com/return")
+        payment = org.mollie_pay_once(amount: BigDecimal("20.00"), description: "Full pipeline", redirect_url: "https://example.com/return")
 
         assert_equal "cst_test1234AB", org.reload.mollie_customer.mollie_id
         assert_equal "tr_test1234AB", payment.mollie_id
@@ -100,11 +100,11 @@ module MolliePay
       customer_id = @org.mollie_customer.mollie_id
 
       webmock_mollie_subscription_create(customer_id: customer_id) do
-        subscription = @org.mollie_subscribe(amount: 2500, interval: "1 month", description: "Monthly")
+        subscription = @org.mollie_subscribe(amount: BigDecimal("25.00"), interval: "1 month", description: "Monthly")
 
         assert_equal "sub_test1234AB", subscription.mollie_id
         assert_equal "active", subscription.status
-        assert_equal 2500, subscription.amount
+        assert_equal BigDecimal("25.00"), subscription.amount
         assert_equal "1 month", subscription.interval
       end
     end
@@ -115,7 +115,7 @@ module MolliePay
       expected_url = "#{MOLLIE_API_BASE}/customers/#{customer_id}/subscriptions"
 
       webmock_mollie_subscription_create(customer_id: customer_id) do
-        @org.mollie_subscribe(amount: 2500, interval: "1 month", description: "Endpoint test")
+        @org.mollie_subscribe(amount: BigDecimal("25.00"), interval: "1 month", description: "Endpoint test")
         assert_requested :post, expected_url
       end
     end

@@ -45,7 +45,7 @@ module MolliePay
 
       assert_equal "re_new789", refund.mollie_id
       assert_equal "pending", refund.status
-      assert_equal 7500, refund.amount
+      assert_equal BigDecimal("75.00"), refund.amount
     end
 
     test "record_from_mollie updates existing refund" do
