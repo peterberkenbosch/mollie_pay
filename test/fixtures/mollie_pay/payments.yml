@@ -1,5 +1,6 @@
 acme_first:
-  customer: acme
+  id: 019f608e-1539-72b0-99d2-1a3e4d43601f
+  customer_id: 019f608e-1539-755c-b1e4-67922fc9306b
   mollie_id: tr_first123
   status: paid
   amount: "10.00"
@@ -8,8 +9,9 @@ acme_first:
   paid_at: <%= 1.week.ago %>
 
 acme_recurring:
-  customer: acme
-  subscription: acme_monthly
+  id: 019f608e-1539-7d5c-81e8-3542fc7bb999
+  customer_id: 019f608e-1539-755c-b1e4-67922fc9306b
+  subscription_id: 019f608e-1539-76c4-ae2d-a29db4370506
   mollie_id: tr_recurring123
   status: paid
   amount: "25.00"
@@ -18,7 +20,8 @@ acme_recurring:
   paid_at: <%= 1.day.ago %>
 
 acme_oneoff:
-  customer: acme
+  id: 019f608e-1539-749b-b452-c7330d01f5aa
+  customer_id: 019f608e-1539-755c-b1e4-67922fc9306b
   mollie_id: tr_oneoff123
   status: open
   amount: "75.00"

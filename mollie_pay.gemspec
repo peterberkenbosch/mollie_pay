@@ -10,6 +10,9 @@ Gem::Specification.new do |spec|
   spec.description = "A headless Rails engine that bridges Mollie payments with SaaS billing patterns. Subscriptions, mandates, one-off payments and webhooks."
   spec.license     = "MIT"
 
+  # UUIDv7 primary keys use SecureRandom.uuid_v7, added in Ruby 3.3 (engine-family charter).
+  spec.required_ruby_version = ">= 3.3"
+
   # Prevent pushing this gem to RubyGems.org. To allow pushes either set the "allowed_push_host"
   # to allow pushing to a single host or delete this section to allow pushing to any host.
   spec.metadata["allowed_push_host"] = "TODO: Set to 'http://mygemserver.com'"

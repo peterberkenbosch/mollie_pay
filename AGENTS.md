@@ -14,6 +14,22 @@ no views, one webhook endpoint, pure business logic.
 
 ---
 
+## Engine family charter
+
+`mollie_pay` is a member of the engine family and follows the shared charter:
+https://github.com/pbcbv/engine-family/blob/main/ENGINE-FAMILY.md (see also ADR 003).
+Two conventions this repo adopts from it:
+
+- **UUIDv7 string primary keys.** Every model has a `:string` PK assigned by the copied
+  `MolliePay::HasUuid` concern (`SecureRandom.uuid_v7`, `before_create`), included via
+  `MolliePay::ApplicationRecord`. Foreign-key and polymorphic `*_id` columns (including the
+  host `owner`) are `:string`. Greenfield — no integer-PK backfill.
+- **Headless with one exception.** The engine ships no controllers or views beyond the
+  Mollie webhook controller and its jobs, which are the one allowed mountable exception to
+  the headless rule.
+
+---
+
 ## Non-negotiable rules
 
 - **No service objects.** Behaviour belongs on the model that owns the data.

@@ -1,3 +1,5 @@
 acme:
+  id: 019f608e-1539-755c-b1e4-67922fc9306b
   mollie_id: cst_acme123
-  owner: acme (Organization)
+  owner_type: Organization
+  owner_id: 019f608e-1539-7953-bcae-53e951f964a4

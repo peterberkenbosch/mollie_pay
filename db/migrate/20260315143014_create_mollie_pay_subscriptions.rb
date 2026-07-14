@@ -1,7 +1,7 @@
 class CreateMolliePaySubscriptions < ActiveRecord::Migration[8.1]
   def change
-    create_table :mollie_pay_subscriptions do |t|
-      t.references :customer, null: false,
+    create_table :mollie_pay_subscriptions, id: :string do |t|
+      t.references :customer, null: false, type: :string,
         foreign_key: { to_table: :mollie_pay_customers }
       t.string  :mollie_id, null: false, index: { unique: true }
       t.string  :status,    null: false, default: "pending"

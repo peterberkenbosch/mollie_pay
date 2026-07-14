@@ -1,5 +1,6 @@
 acme_monthly:
-  customer: acme
+  id: 019f608e-1539-76c4-ae2d-a29db4370506
+  customer_id: 019f608e-1539-755c-b1e4-67922fc9306b
   mollie_id: sub_acme123
   status: active
   amount: "25.00"
@@ -8,7 +9,8 @@ acme_monthly:
   name: default
 
 acme_addon:
-  customer: acme
+  id: 019f608e-1539-7467-9c94-a03ab1e411c0
+  customer_id: 019f608e-1539-755c-b1e4-67922fc9306b
   mollie_id: sub_acme_addon
   status: active
   amount: "10.00"

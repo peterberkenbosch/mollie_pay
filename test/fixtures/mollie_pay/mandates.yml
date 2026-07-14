@@ -1,5 +1,6 @@
 acme_mandate:
-  customer: acme
+  id: 019f608e-1539-799e-8015-f2067683a91d
+  customer_id: 019f608e-1539-755c-b1e4-67922fc9306b
   mollie_id: mdt_mandate123
   method: directdebit
   status: valid

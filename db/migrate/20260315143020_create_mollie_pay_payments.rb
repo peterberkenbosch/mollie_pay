@@ -1,9 +1,9 @@
 class CreateMolliePayPayments < ActiveRecord::Migration[8.1]
   def change
-    create_table :mollie_pay_payments do |t|
-      t.references :customer, null: false,
+    create_table :mollie_pay_payments, id: :string do |t|
+      t.references :customer, null: false, type: :string,
         foreign_key: { to_table: :mollie_pay_customers }
-      t.references :subscription,
+      t.references :subscription, type: :string,
         foreign_key: { to_table: :mollie_pay_subscriptions }
       t.string  :mollie_id,     null: false, index: { unique: true }
       t.string  :status,        null: false, default: "open"
