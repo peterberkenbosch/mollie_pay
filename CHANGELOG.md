@@ -3,6 +3,26 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.7.0] - 2026-07-14
+
+### Changed
+- **Breaking:** Adopt the engine-family charter — primary keys are now UUIDv7 strings.
+  Every model gets a `:string` PK via the new `MolliePay::HasUuid` concern
+  (`SecureRandom.uuid_v7`, `before_create`, included through
+  `MolliePay::ApplicationRecord`). All foreign-key and polymorphic `*_id` columns
+  (`owner_id`, `customer_id`, `subscription_id`, `payment_id`) are now `:string`.
+- **Breaking:** Require Ruby `>= 3.3` (`SecureRandom.uuid_v7`).
+
+### Added
+- `MolliePay::HasUuid` concern (copied family convention per the engine-family charter).
+- `AGENTS.md` links the engine-family charter and records the UUIDv7 PK rule and the
+  Mollie webhook as the one allowed mountable exception to the headless rule.
+
+### Migration Required
+- Greenfield PK reset: integer PKs become UUIDv7 string PKs with **no data migration**
+  (per ADR 003). A fresh install needs no extra step. An existing database must be
+  recreated — there is no integer-to-uuid backfill.
+
 ## [0.6.0] - 2026-07-13
 
 ### Changed
