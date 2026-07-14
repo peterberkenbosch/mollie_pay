@@ -1,5 +1,6 @@
 acme_refund:
-  payment: acme_oneoff
+  id: 019f608e-1539-7b7c-8e35-542eb33850b1
+  payment_id: 019f608e-1539-749b-b452-c7330d01f5aa
   mollie_id: re_refund123
   status: queued
   amount: "75.00"

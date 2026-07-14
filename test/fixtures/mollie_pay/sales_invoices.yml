@@ -1,10 +1,12 @@
 acme_draft:
-  customer: acme
+  id: 019f608e-1539-7a34-994a-4424bf728b71
+  customer_id: 019f608e-1539-755c-b1e4-67922fc9306b
   mollie_id: invoice_draft123
   status: draft
 
 acme_issued:
-  customer: acme
+  id: 019f608e-1539-749a-b2b0-2732f3a7363f
+  customer_id: 019f608e-1539-755c-b1e4-67922fc9306b
   mollie_id: invoice_issued456
   status: issued
   invoice_number: INV-0000001

@@ -288,7 +288,7 @@ See [docs/testing.md](docs/testing.md) for the full helper reference.
 
 ## Requirements
 
-- Ruby 3.2+
+- Ruby 3.3+
 - Rails 8.1+
 - Active Job (any queue adapter)
 - A [Mollie](https://my.mollie.com/dashboard/signup/7878281?lang=nl) account and API key
