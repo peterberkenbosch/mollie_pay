@@ -17,8 +17,9 @@ Before cutting a release, ensure:
 2. **Linting passes**: `bundle exec rubocop`
 3. **CHANGELOG.md updated** with all changes since last release
 4. **Version bumped** in `lib/mollie_pay/version.rb`
-5. **Migration notes added** to CHANGELOG if schema changes
-6. **README.md updated** with any new features or API changes
+5. **`Gemfile.lock` refreshed** to the new version (run `bundle install` after the bump)
+6. **Migration notes added** to CHANGELOG if schema changes
+7. **README.md updated** with any new features or API changes
 
 ## Step-by-Step Release Process
 
@@ -65,12 +66,23 @@ module MolliePay
 end
 ```
 
-### 3. Create Release Commit
-
-Commit both files with a conventional commit message:
+Then refresh the lockfile so it pins the new version:
 
 ```bash
-git add lib/mollie_pay/version.rb CHANGELOG.md
+bundle install
+```
+
+`mollie_pay` is a path gem, so `Gemfile.lock` records `mollie_pay (X.Y.Z)`. CI runs
+bundler in **frozen mode**, which fails if the gemspec version and the lockfile disagree.
+Skipping this step turns CI red on the release commit. Confirm `Gemfile.lock` now shows the
+new version (`grep 'mollie_pay (' Gemfile.lock`).
+
+### 3. Create Release Commit
+
+Commit the version, changelog, and lockfile with a conventional commit message:
+
+```bash
+git add lib/mollie_pay/version.rb CHANGELOG.md Gemfile.lock
 git commit -m "chore: Bump version to X.Y.Z"
 ```
 
