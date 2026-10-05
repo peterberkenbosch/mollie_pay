@@ -47,6 +47,14 @@ module MolliePay
       mandate
     end
 
+    # Mollie has no mandate webhooks. A mandate that was still pending when its
+    # first payment was paid is re-fetched on later webhooks for that payment.
+    def self.refresh_pending_from_mollie_payment(payment, mollie_payment)
+      if pending.exists?(customer: payment.customer, mollie_id: mollie_payment.mandate_id)
+        record_from_mollie_payment(payment, mollie_payment)
+      end
+    end
+
     def mollie_record
       Mollie::Customer::Mandate.get(mollie_id, customer_id: customer.mollie_id)
     end

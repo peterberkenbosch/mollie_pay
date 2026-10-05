@@ -147,6 +147,24 @@ module MolliePay
       assert_equal "first", received_args[:sequenceType]
     end
 
+    test "mollie_pay_first passes paybybank method to Mollie API" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_method_paybybank")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_first(
+          amount: BigDecimal("10.00"),
+          description: "First Pay by Bank",
+          redirect_url: "https://example.com/return",
+          method: "paybybank"
+        )
+      end
+
+      assert_equal "paybybank", received_args[:method]
+      assert_equal "first", received_args[:sequenceType]
+    end
+
     test "mollie_pay_once passes nil method when not provided" do
       received_args = nil
       response = fake_mollie_payment(id: "tr_no_method")
