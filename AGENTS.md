@@ -55,38 +55,6 @@ Two conventions this repo adopts from it:
 
 ## Architecture
 
-```
-app/
-  controllers/mollie_pay/
-    application_controller.rb   # inherits ActionController::Base directly
-    webhooks_controller.rb      # classic webhooks (create only)
-    webhook_events_controller.rb # next-gen webhooks with HMAC verification
-  jobs/mollie_pay/
-    application_job.rb
-    process_webhook_job.rb      # classic webhook processing
-    process_webhook_event_job.rb # next-gen event processing
-  models/mollie_pay/
-    application_record.rb       # shared mollie_value_to_decimal
-    billable.rb                 # concern included by host app model
-    customer.rb
-    mandate.rb
-    chargeback.rb
-    payment.rb
-    refund.rb
-    sales_invoice.rb
-    subscription.rb
-lib/
-  mollie/
-    sales_invoice.rb        # SDK extension for /v2/sales-invoices endpoint
-  mollie_pay/
-    configuration.rb
-    engine.rb
-    errors.rb
-    version.rb
-    webhook_signature.rb    # HMAC-SHA256 verification for next-gen webhooks
-  mollie_pay.rb
-```
-
 There is no `app/services/`. There are no presenters, decorators, form
 objects or interactors.
 
@@ -193,52 +161,16 @@ end
 associations. Rails cannot resolve engine-namespaced models when the including
 model is in the host app namespace.
 
-Public methods:
-- `mollie_pay_once(amount:, description:, redirect_url: nil, method: nil, metadata: nil)` → returns `Payment` with `checkout_url`
-- `mollie_pay_first(amount:, description:, redirect_url: nil, method: nil, metadata: nil)` → returns `Payment` with `checkout_url`
-- `mollie_subscribe(amount:, interval:, description:, start_date: nil, name: "default")` → returns `Subscription` (returns existing if pending/active for that name)
-- `mollie_cancel_subscription(name: "default")`
-- `mollie_swap_subscription(name: "default", amount: nil, interval: nil)` — upgrade/downgrade via Mollie PATCH
-- `mollie_update_payment(payment, description: nil, redirect_url: nil, metadata: nil)`
-- `mollie_cancel_payment(payment)` — raises `PaymentNotCancelable` if Mollie says it's not cancelable
-- `mollie_refund(payment, amount: nil)`
-- `mollie_subscribed?(name: "default")`
-- `mollie_mandated?`
-- `mollie_subscription(name: "default")`
-- `mollie_mandate`
-- `mollie_payments` → `has_many :through` association (supports `includes`, `joins`, etc.)
-- `mollie_create_sales_invoice(lines:, status: "draft", recipient: nil, **options)` → creates on Mollie and persists local `SalesInvoice` record (beta)
-- `mollie_mark_invoice_paid(invoice, source: "manual")` → marks issued invoice as paid on Mollie + local record, fires hook
-- `mollie_sales_invoices` → `has_many :through` association (supports scopes: `.issued`, `.paid`, `.overdue`)
-- `mollie_sales_invoice(id)` → gets single sales invoice from Mollie API
-- `mollie_create_mandate(method:, consumer_name:, consumer_account:, signature_date: nil)` → creates SEPA DD mandate directly (**requires prior customer consent** — see [docs/mandates.md](docs/mandates.md))
-- `mollie_revoke_mandate(mandate)` — revokes mandate on Mollie, sets local status to invalid
-- `mollie_update_customer(name: nil, email: nil, locale: nil, metadata: nil)` — syncs customer details to Mollie
-- `mollie_delete_customer` — deletes on Mollie and cascade-destroys all local records
-- `mollie_payment_methods(**options)` → delegates to `MolliePay.payment_methods`
+`mollie_create_mandate` creates a SEPA DD mandate directly and **requires prior
+customer consent** — see [docs/mandates.md](docs/mandates.md).
 
 **Named subscriptions:** All subscription methods accept `name:` with a default
 of `"default"`. This allows multiple concurrent subscriptions per customer
 (e.g., `"default"` + `"analytics_addon"`). A partial unique index prevents
 duplicate active/pending subscriptions per name per customer.
 
-Event hooks (override in host model, all no-ops by default):
-- `on_mollie_payment_paid`
-- `on_mollie_payment_failed`
-- `on_mollie_payment_canceled`
-- `on_mollie_payment_expired`
-- `on_mollie_first_payment_paid`
-- `on_mollie_subscription_charged`
-- `on_mollie_subscription_canceled`
-- `on_mollie_subscription_suspended`
-- `on_mollie_subscription_completed`
-- `on_mollie_mandate_created`
-- `on_mollie_refund_processed`
-- `on_mollie_chargeback_received`
-- `on_mollie_chargeback_reversed`
-- `on_mollie_subscription_swapped(subscription, previous_amount:, previous_interval:)`
-- `on_mollie_sales_invoice_issued`
-- `on_mollie_sales_invoice_paid`
+Event hooks (`on_mollie_*`) are overridden in the host model and are all no-ops
+by default.
 
 ---
 
