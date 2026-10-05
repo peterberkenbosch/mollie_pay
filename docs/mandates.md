@@ -45,9 +45,14 @@ an instant SEPA transfer, 2-3 business days for a standard one.
 `on_mollie_first_payment_paid` and `on_mollie_mandate_created` fire only once it
 is `paid`, so don't call `mollie_subscribe` before then.
 
-Mollie's API reference does not yet document the payment `details` fields or
-the mandate `method` returned for Pay by Bank. MolliePay stores whatever mandate
-method Mollie reports.
+A Pay by Bank first payment creates a `directdebit` mandate, the same as iDEAL
+and Bancontact. **SEPA Direct Debit must be enabled on your Mollie profile**,
+otherwise Mollie cannot create the mandate.
+
+Mollie can report the mandate as `pending` while it has not yet received the
+IBAN from the first payment. MolliePay stores it as `pending` and re-fetches it
+on later webhooks for that payment; `on_mollie_mandate_created` fires when it
+turns `valid`. Mollie sends no webhook for the mandate itself.
 
 ### Path 2: Direct Mandate Creation
 
@@ -222,6 +227,7 @@ subscriptions using this mandate should be canceled separately.
 - [Mollie Recurring Payments](https://docs.mollie.com/docs/recurring-payments)
 - [Mollie Create Mandate API](https://docs.mollie.com/reference/create-mandate)
 - [Mollie Pay by Bank](https://docs.mollie.com/docs/pay-by-bank)
+- [Mollie OpenAPI specification](https://github.com/mollie/openapi)
 - [Mollie relaunches Pay by Bank (2026-10-02)](https://www.mollie.com/news/mollie-relaunches-pay-by-bank)
 - [Mollie and GoCardless combine](https://www.mollie.com/news/mollie-and-gocardless)
 - [eIDAS Regulation (EU No 910/2014)](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.L_.2014.257.01.0073.01.ENG)

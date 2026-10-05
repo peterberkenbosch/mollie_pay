@@ -59,7 +59,12 @@ module MolliePay
         amount_charged_back: mp.amount_charged_back ? mollie_value_to_decimal(mp.amount_charged_back) : payment.amount_charged_back
       )
 
-      payment.notify_billable(mp) if payment.status != previous_status
+      if payment.status != previous_status
+        payment.notify_billable(mp)
+      elsif payment.paid? && payment.first_payment?
+        Mandate.refresh_pending_from_mollie_payment(payment, mp)
+      end
+
       Chargeback.sync_for_payment(payment) if payment.amount_charged_back != previous_amount_charged_back
       payment
     rescue ActiveRecord::RecordNotUnique
