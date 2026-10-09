@@ -42,6 +42,7 @@ Owner (your model)
 MolliePay::Payment.paid             # status: paid
 MolliePay::Payment.failed           # status: failed
 MolliePay::Payment.open             # status: open
+MolliePay::Payment.authorized       # status: authorized (awaiting capture)
 MolliePay::Payment.recurring        # sequence_type: recurring
 MolliePay::Payment.first_payments   # sequence_type: first
 
@@ -159,6 +160,114 @@ end
 - Bust the cache manually when you change payment method settings in the
   Mollie dashboard: `Rails.cache.delete_matched("mollie_payment_methods*")`
 
+## Pay later with Billink
+
+[Billink](https://docs.mollie.com/docs/billink) is a buy-now-pay-later method
+on Mollie's Payments API. The consumer receives the order first and pays
+Billink within 14 days of capture; Mollie settles to you regardless.
+
+Constraints from Mollie's documentation:
+
+- Beta. Mollie must activate Billink on your account (contact support or your
+  account manager). Code support alone does not enable it.
+- EUR only, consumers in NL, BE and DE, merchants in NL and BE.
+- Amount between 0.01 and 2,500.00.
+- Manual capture only: the payment is **authorized** first, you capture it after
+  shipping. The authorization expires after 28 days; an uncaptured payment then
+  becomes `expired`.
+- Full capture only. Full and partial refunds after capture.
+- No recurring payments, so only `mollie_pay_once` applies.
+
+### Creating the payment
+
+`mollie_pay_once` accepts five optional arguments for pay-later methods:
+
+```ruby
+payment = organization.mollie_pay_once(
+  amount: BigDecimal("121.00"), description: "Order 1001",
+  redirect_url: "https://yourapp.com/orders/1001",
+  method: "billink",
+  capture_mode: "manual",   # required by Billink; the engine does not infer it
+  locale: "nl_NL",          # optional, recommended by Mollie
+  billing_address: {        # required by Billink
+    given_name: "Jan", family_name: "Jansen",
+    street_and_number: "Keizersgracht 126", postal_code: "1015 CW",
+    city: "Amsterdam", country: "NL", email: "jan@example.com"
+  },
+  shipping_address: { ... }, # optional, same fields
+  lines: [                  # required by Billink
+    {
+      description: "Widget",
+      quantity: 1,
+      unit_price: BigDecimal("121.00"),
+      total_amount: BigDecimal("121.00"),
+      vat_rate: "21.00",
+      vat_amount: BigDecimal("21.00"),
+      type: "physical"      # optional: physical, digital, shipping_fee, discount, ...
+    }
+  ]
+)
+```
+
+Lines and addresses are snake_case Ruby hashes; the engine camelizes the keys
+and converts the money fields `unit_price`, `total_amount`, `vat_amount` and
+`discount_amount` from `BigDecimal` to Mollie's wire format. The engine does
+not derive totals. Apply Mollie's formulas yourself:
+
+- `total_amount = unit_price × quantity − discount_amount`
+- `vat_amount = total_amount × vat_rate / (100 + vat_rate)`, rounded to two decimals
+- the `total_amount` of all lines must equal the payment `amount`
+
+Mollie rejects a mismatch with a 422; the local payment record is rolled back.
+
+The conversion is also available directly as
+`MolliePay.build_payment_params(lines:, billing_address:, shipping_address:, capture_mode:, locale:)`,
+which returns the camelized hash the engine sends.
+
+### Lifecycle
+
+```
+open → authorized → (mollie_capture)             → paid      on_mollie_payment_authorized, on_mollie_payment_paid
+open → authorized → (mollie_release_authorization) → canceled  on_mollie_payment_canceled
+open → authorized → (no capture within 28 days)  → expired   on_mollie_payment_expired
+open → canceled / failed / expired                            consumer abandoned or was rejected
+```
+
+Every local state change arrives through the normal payment webhook. The two
+operations below only ask Mollie to act; they never write local state.
+
+### Capturing
+
+```ruby
+organization.mollie_capture(payment)                            # full amount (Billink)
+organization.mollie_capture(payment, amount: BigDecimal("50.00")) # partial, for methods that allow it
+```
+
+`mollie_capture` fetches the live payment from Mollie and raises
+`MolliePay::PaymentNotAuthorized` unless its status is `authorized`. It returns
+the SDK capture object (`Mollie::Payment::Capture`); its status is in
+`capture.attributes["status"]` (`pending`, `succeeded`, `failed`). The payment
+becomes `paid` through the next webhook, which fires `on_mollie_payment_paid`.
+If a capture call times out, check `payment.mollie_record.amount_captured`
+before retrying.
+
+The capture deadline is in `payment.mollie_record.attributes["capture_before"]`
+(the SDK exposes no accessor for it).
+
+### Releasing
+
+```ruby
+organization.mollie_release_authorization(payment)
+```
+
+Same ownership and live-status checks as capture. Mollie processes the release
+asynchronously and does not guarantee it succeeds; the payment becomes
+`canceled` through the next webhook, which fires `on_mollie_payment_canceled`.
+If Mollie does not honor the release, the payment stays `authorized` and you can
+retry or capture.
+
+Refunds (`mollie_refund`) apply only after capture.
+
 ## Subscription plan swap (upgrade/downgrade)
 
 Change a customer's subscription amount and/or interval without canceling:
@@ -204,6 +313,7 @@ end
 | `MolliePay::MandateRequired` | `mollie_subscribe` is called without a valid mandate |
 | `MolliePay::SubscriptionNotFound` | `mollie_cancel_subscription` is called without an active subscription |
 | `MolliePay::PaymentNotCancelable` | `mollie_cancel_payment` is called on a payment Mollie says is not cancelable |
+| `MolliePay::PaymentNotAuthorized` | `mollie_capture` or `mollie_release_authorization` is called on a payment whose live Mollie status is not `authorized` |
 
 All inherit from `MolliePay::Error < StandardError`.
 
