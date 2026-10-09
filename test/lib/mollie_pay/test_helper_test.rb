@@ -186,6 +186,19 @@ module MolliePay
       end
     end
 
+    test "webmock_mollie_payment_get loads an alternate fixture" do
+      customer = mollie_pay_customers(:acme)
+
+      webmock_mollie_payment_get("tr_billink_fx", fixture: "payment_billink", customer_id: customer.mollie_id) do
+        mollie_payment = Mollie::Payment.get("tr_billink_fx")
+
+        assert_equal "billink", mollie_payment.method
+        assert_equal "authorized", mollie_payment.status
+        assert_kind_of Mollie::Payment::Line, mollie_payment.lines.first
+        assert_equal "manual", mollie_payment.attributes["capture_mode"]
+      end
+    end
+
     test "webmock_mollie_payment_get stubs GET for webhook processing" do
       customer = mollie_pay_customers(:acme)
 

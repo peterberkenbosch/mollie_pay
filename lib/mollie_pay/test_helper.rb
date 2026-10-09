@@ -450,8 +450,15 @@ module MolliePay
     #     MolliePay::ProcessWebhookJob.perform_now(event.id)
     #   end
     #
-    def webmock_mollie_payment_get(payment_id, **overrides)
-      body = mollie_fixture("payment", id: payment_id, **overrides)
+    # Pass `fixture:` to load another payment fixture, such as the Billink
+    # (manual capture) payment with lines and a billing address:
+    #
+    #   webmock_mollie_payment_get("tr_abc123", fixture: "payment_billink", status: "authorized") do
+    #     MolliePay::ProcessWebhookJob.perform_now("tr_abc123")
+    #   end
+    #
+    def webmock_mollie_payment_get(payment_id, fixture: "payment", **overrides)
+      body = mollie_fixture(fixture, id: payment_id, **overrides)
       stub_request(:get, "#{MOLLIE_API_BASE}/payments/#{payment_id}")
         .to_return(status: 200, body: body, headers: { "Content-Type" => "application/hal+json" })
       yield
