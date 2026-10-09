@@ -1204,5 +1204,100 @@ module MolliePay
         @org.mollie_refund(other_payment)
       end
     end
+
+    # === Pay later (Billink): lines, addresses, capture mode, locale ===
+
+    test "mollie_pay_once passes lines, billing address, capture mode and locale to Mollie API" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_billink")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_once(
+          amount: BigDecimal("121.00"),
+          description: "Order 1001",
+          redirect_url: "https://example.com/return",
+          method: "billink",
+          capture_mode: "manual",
+          locale: "nl_NL",
+          billing_address: {
+            given_name: "Jan", family_name: "Jansen", street_and_number: "Keizersgracht 126",
+            postal_code: "1015 CW", city: "Amsterdam", country: "NL", email: "jan@example.com"
+          },
+          lines: [ {
+            description: "Widget", quantity: 1, unit_price: BigDecimal("121.00"),
+            total_amount: BigDecimal("121.00"), vat_rate: "21.00", vat_amount: BigDecimal("21.00")
+          } ]
+        )
+      end
+
+      assert_equal "billink", received_args[:method]
+      assert_equal "manual", received_args[:captureMode]
+      assert_equal "nl_NL", received_args[:locale]
+      assert_equal "Keizersgracht 126", received_args[:billingAddress][:streetAndNumber]
+      assert_equal "1015 CW", received_args[:billingAddress][:postalCode]
+      assert_equal({ currency: "EUR", value: "121.00" }, received_args[:lines].first[:unitPrice])
+      assert_equal({ currency: "EUR", value: "21.00" }, received_args[:lines].first[:vatAmount])
+    end
+
+    test "mollie_pay_once passes shipping address to Mollie API" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_shipping")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_once(
+          amount: BigDecimal("10.00"),
+          description: "Shipped",
+          redirect_url: "https://example.com/return",
+          shipping_address: { given_name: "Jan", country: "NL" }
+        )
+      end
+
+      assert_equal({ givenName: "Jan", country: "NL" }, received_args[:shippingAddress])
+    end
+
+    test "mollie_pay_once without new arguments sends exactly the existing keys" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_existing_keys")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_once(amount: BigDecimal("10.00"), description: "Plain", redirect_url: "https://example.com/return")
+      end
+
+      expected_keys = %i[ amount description redirectUrl webhookUrl customerId sequenceType method metadata idempotency_key ]
+      assert_equal expected_keys.sort, received_args.keys.sort
+    end
+
+    test "mollie_pay_first sends exactly the existing keys" do
+      received_args = nil
+      response = fake_mollie_payment(id: "tr_first_keys")
+      fake_create = ->(**args) { received_args = args; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_first(amount: BigDecimal("1.00"), description: "Setup", redirect_url: "https://example.com/return")
+      end
+
+      expected_keys = %i[ amount description redirectUrl webhookUrl customerId sequenceType method metadata idempotency_key ]
+      assert_equal expected_keys.sort, received_args.keys.sort
+    end
+
+    test "mollie_pay_once with lines still creates the local payment record" do
+      stub_mollie_payment_create(id: "tr_billink_local") do
+        payment = @org.mollie_pay_once(
+          amount: BigDecimal("121.00"),
+          description: "Order 1001",
+          redirect_url: "https://example.com/return",
+          method: "billink",
+          capture_mode: "manual",
+          lines: [ { description: "Widget", quantity: 1, unit_price: BigDecimal("121.00"), total_amount: BigDecimal("121.00") } ]
+        )
+
+        assert_equal "tr_billink_local", payment.mollie_id
+        assert_equal BigDecimal("121.00"), payment.amount
+        assert_equal "oneoff", payment.sequence_type
+      end
+    end
   end
 end

@@ -58,8 +58,12 @@ module MolliePay
 
     # === Payments ===
 
-    def mollie_pay_once(amount:, description:, redirect_url: nil, method: nil, metadata: nil)
-      create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type: "oneoff")
+    def mollie_pay_once(amount:, description:, redirect_url: nil, method: nil, metadata: nil,
+                        lines: nil, billing_address: nil, shipping_address: nil, capture_mode: nil, locale: nil)
+      create_mollie_payment(
+        amount:, description:, redirect_url:, method:, metadata:, sequence_type: "oneoff",
+        lines:, billing_address:, shipping_address:, capture_mode:, locale:
+      )
     end
 
     def mollie_pay_first(amount:, description:, redirect_url: nil, method: nil, metadata: nil)
@@ -284,7 +288,9 @@ module MolliePay
       raise MolliePay::Error, "Payment does not belong to this customer" unless mollie_payments.exists?(id: payment.id)
     end
 
-    def create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type:)
+    def create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type:,
+                              lines: nil, billing_address: nil, shipping_address: nil, capture_mode: nil, locale: nil)
+      extra_params = MolliePay.build_payment_params(lines:, billing_address:, shipping_address:, capture_mode:, locale:)
       customer = mollie_customer!
 
       Payment.transaction do
@@ -307,6 +313,7 @@ module MolliePay
           sequenceType:    sequence_type,
           method:          method,
           metadata:        metadata,
+          **extra_params,
           idempotency_key: SecureRandom.uuid
         )
 
