@@ -3,6 +3,7 @@ module MolliePay
   class MandateRequired      < Error; end
   class SubscriptionNotFound < Error; end
   class PaymentNotCancelable < Error; end
+  class PaymentNotAuthorized < Error; end
   class InvalidSignature     < Error; end
   class InvoiceNotUpdatable  < Error; end
 end

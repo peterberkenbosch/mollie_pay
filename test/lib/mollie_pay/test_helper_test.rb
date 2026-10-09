@@ -8,6 +8,39 @@ module MolliePay
 
     # ── Method-level stubs ───────────────────────────────────────────
 
+    test "stub_mollie_capture_create stubs capture creation" do
+      payment = mollie_pay_payments(:acme_authorized)
+
+      stub_mollie_capture_create do
+        capture = @org.mollie_capture(payment)
+        assert_match(/\Acpt_/, capture.id)
+      end
+    end
+
+    test "stub_mollie_capture_create accepts a non-authorized status" do
+      payment = mollie_pay_payments(:acme_authorized)
+
+      stub_mollie_capture_create(status: "open") do
+        assert_raises(MolliePay::PaymentNotAuthorized) { @org.mollie_capture(payment) }
+      end
+    end
+
+    test "stub_mollie_payment_release_authorization stubs release" do
+      payment = mollie_pay_payments(:acme_authorized)
+
+      stub_mollie_payment_release_authorization do
+        assert_equal true, @org.mollie_release_authorization(payment)
+      end
+    end
+
+    test "stub_mollie_payment_release_authorization accepts a non-authorized status" do
+      payment = mollie_pay_payments(:acme_authorized)
+
+      stub_mollie_payment_release_authorization(status: "paid") do
+        assert_raises(MolliePay::PaymentNotAuthorized) { @org.mollie_release_authorization(payment) }
+      end
+    end
+
     test "stub_mollie_payment_create stubs payment creation" do
       stub_mollie_payment_create do
         payment = @org.mollie_pay_once(amount: BigDecimal("50.00"), description: "Test", redirect_url: "https://example.com/return")

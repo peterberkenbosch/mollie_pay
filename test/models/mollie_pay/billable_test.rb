@@ -1299,5 +1299,131 @@ module MolliePay
         assert_equal "oneoff", payment.sequence_type
       end
     end
+
+    # === Capture and release authorization ===
+
+    test "mollie_capture creates a full capture for a live authorized payment" do
+      payment = mollie_pay_payments(:acme_authorized)
+      received_args = nil
+      fake_capture_create = ->(**args) { received_args = args; fake_mollie_capture(payment_id: payment.mollie_id) }
+
+      Mollie::Payment.stub(:get, OpenStruct.new(authorized?: true)) do
+        Mollie::Payment::Capture.stub(:create, fake_capture_create) do
+          capture = @org.mollie_capture(payment)
+          assert_match(/\Acpt_/, capture.id)
+        end
+      end
+
+      assert_equal payment.mollie_id, received_args[:payment_id]
+      assert received_args[:idempotency_key].present?
+      assert_not received_args.key?(:amount)
+      assert_equal "authorized", payment.reload.status
+    end
+
+    test "mollie_capture passes a partial amount in Mollie format" do
+      payment = mollie_pay_payments(:acme_authorized)
+      received_args = nil
+      fake_capture_create = ->(**args) { received_args = args; fake_mollie_capture }
+
+      Mollie::Payment.stub(:get, OpenStruct.new(authorized?: true)) do
+        Mollie::Payment::Capture.stub(:create, fake_capture_create) do
+          @org.mollie_capture(payment, amount: BigDecimal("50.00"))
+        end
+      end
+
+      assert_equal({ currency: "EUR", value: "50.00" }, received_args[:amount])
+    end
+
+    test "mollie_capture raises when the live payment is not authorized" do
+      payment = mollie_pay_payments(:acme_authorized)
+      capture_called = false
+      fake_capture_create = ->(**_args) { capture_called = true; fake_mollie_capture }
+
+      Mollie::Payment.stub(:get, OpenStruct.new(authorized?: false)) do
+        Mollie::Payment::Capture.stub(:create, fake_capture_create) do
+          assert_raises(MolliePay::PaymentNotAuthorized) do
+            @org.mollie_capture(payment)
+          end
+        end
+      end
+
+      assert_not capture_called
+    end
+
+    test "mollie_capture consults the live status, not the local one" do
+      payment = mollie_pay_payments(:acme_oneoff)
+      assert_equal "open", payment.status
+
+      Mollie::Payment.stub(:get, OpenStruct.new(authorized?: true)) do
+        Mollie::Payment::Capture.stub(:create, fake_mollie_capture) do
+          assert_match(/\Acpt_/, @org.mollie_capture(payment).id)
+        end
+      end
+    end
+
+    test "mollie_capture raises for payment not belonging to this customer" do
+      other_org = Organization.create!(name: "Other Org", email: "other@org.nl")
+      other_customer = MolliePay::Customer.create!(mollie_id: "cst_other_cap", owner: other_org)
+      other_payment = MolliePay::Payment.create!(
+        customer: other_customer, mollie_id: "tr_other_cap",
+        status: "authorized", amount: BigDecimal("50.00"), currency: "EUR", sequence_type: "oneoff"
+      )
+      get_called = false
+
+      Mollie::Payment.stub(:get, ->(_id) { get_called = true; OpenStruct.new(authorized?: true) }) do
+        assert_raises(MolliePay::Error) do
+          @org.mollie_capture(other_payment)
+        end
+      end
+
+      assert_not get_called
+    end
+
+    test "mollie_release_authorization releases a live authorized payment without local changes" do
+      payment = mollie_pay_payments(:acme_authorized)
+      received_options = nil
+      mollie_payment = Object.new
+      mollie_payment.define_singleton_method(:authorized?) { true }
+      mollie_payment.define_singleton_method(:release_authorization) { |options = {}| received_options = options; true }
+
+      Mollie::Payment.stub(:get, mollie_payment) do
+        assert_equal true, @org.mollie_release_authorization(payment)
+      end
+
+      assert received_options[:idempotency_key].present?
+      assert_equal "authorized", payment.reload.status
+      assert_nil payment.canceled_at
+    end
+
+    test "mollie_release_authorization raises when the live payment is not authorized" do
+      payment = mollie_pay_payments(:acme_first)
+      mollie_payment = Object.new
+      mollie_payment.define_singleton_method(:authorized?) { false }
+      mollie_payment.define_singleton_method(:release_authorization) { |_options = {}| flunk "release should not be called" }
+
+      Mollie::Payment.stub(:get, mollie_payment) do
+        assert_raises(MolliePay::PaymentNotAuthorized) do
+          @org.mollie_release_authorization(payment)
+        end
+      end
+    end
+
+    test "mollie_release_authorization raises for payment not belonging to this customer" do
+      other_org = Organization.create!(name: "Other Org", email: "other@org.nl")
+      other_customer = MolliePay::Customer.create!(mollie_id: "cst_other_rel", owner: other_org)
+      other_payment = MolliePay::Payment.create!(
+        customer: other_customer, mollie_id: "tr_other_rel",
+        status: "authorized", amount: BigDecimal("50.00"), currency: "EUR", sequence_type: "oneoff"
+      )
+      get_called = false
+
+      Mollie::Payment.stub(:get, ->(_id) { get_called = true; OpenStruct.new(authorized?: true) }) do
+        assert_raises(MolliePay::Error) do
+          @org.mollie_release_authorization(other_payment)
+        end
+      end
+
+      assert_not get_called
+    end
   end
 end
