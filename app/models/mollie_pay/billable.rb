@@ -60,10 +60,8 @@ module MolliePay
 
     def mollie_pay_once(amount:, description:, redirect_url: nil, method: nil, metadata: nil,
                         lines: nil, billing_address: nil, shipping_address: nil, capture_mode: nil, locale: nil)
-      create_mollie_payment(
-        amount:, description:, redirect_url:, method:, metadata:, sequence_type: "oneoff",
-        lines:, billing_address:, shipping_address:, capture_mode:, locale:
-      )
+      extra_params = MolliePay.build_payment_params(lines:, billing_address:, shipping_address:, capture_mode:, locale:)
+      create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type: "oneoff", extra_params:)
     end
 
     def mollie_pay_first(amount:, description:, redirect_url: nil, method: nil, metadata: nil)
@@ -311,17 +309,15 @@ module MolliePay
     end
 
     # Fetches the live payment so a delayed webhook cannot allow or block the
-    # operation wrongly. Returns the Mollie payment object.
+    # operation wrongly.
     def verify_payment_authorized!(payment)
-      mollie_payment = Mollie::Payment.get(payment.mollie_id)
+      mollie_payment = payment.mollie_record
       raise MolliePay::PaymentNotAuthorized, "Payment #{payment.mollie_id} is not authorized" unless mollie_payment.authorized?
 
       mollie_payment
     end
 
-    def create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type:,
-                              lines: nil, billing_address: nil, shipping_address: nil, capture_mode: nil, locale: nil)
-      extra_params = MolliePay.build_payment_params(lines:, billing_address:, shipping_address:, capture_mode:, locale:)
+    def create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type:, extra_params: {})
       customer = mollie_customer!
 
       Payment.transaction do

@@ -2,6 +2,8 @@ require "test_helper"
 
 module MolliePay
   class BillableTest < ActiveSupport::TestCase
+    EXISTING_PAYMENT_CREATE_KEYS = %i[ amount description redirectUrl webhookUrl customerId sequenceType method metadata idempotency_key ].sort.freeze
+
     setup do
       @org = organizations(:acme)
     end
@@ -1266,8 +1268,7 @@ module MolliePay
         @org.mollie_pay_once(amount: BigDecimal("10.00"), description: "Plain", redirect_url: "https://example.com/return")
       end
 
-      expected_keys = %i[ amount description redirectUrl webhookUrl customerId sequenceType method metadata idempotency_key ]
-      assert_equal expected_keys.sort, received_args.keys.sort
+      assert_equal EXISTING_PAYMENT_CREATE_KEYS, received_args.keys.sort
     end
 
     test "mollie_pay_first sends exactly the existing keys" do
@@ -1279,8 +1280,7 @@ module MolliePay
         @org.mollie_pay_first(amount: BigDecimal("1.00"), description: "Setup", redirect_url: "https://example.com/return")
       end
 
-      expected_keys = %i[ amount description redirectUrl webhookUrl customerId sequenceType method metadata idempotency_key ]
-      assert_equal expected_keys.sort, received_args.keys.sort
+      assert_equal EXISTING_PAYMENT_CREATE_KEYS, received_args.keys.sort
     end
 
     test "mollie_pay_once with lines still creates the local payment record" do
@@ -1362,12 +1362,7 @@ module MolliePay
     end
 
     test "mollie_capture raises for payment not belonging to this customer" do
-      other_org = Organization.create!(name: "Other Org", email: "other@org.nl")
-      other_customer = MolliePay::Customer.create!(mollie_id: "cst_other_cap", owner: other_org)
-      other_payment = MolliePay::Payment.create!(
-        customer: other_customer, mollie_id: "tr_other_cap",
-        status: "authorized", amount: BigDecimal("50.00"), currency: "EUR", sequence_type: "oneoff"
-      )
+      other_payment = create_foreign_authorized_payment("cap")
       get_called = false
 
       Mollie::Payment.stub(:get, ->(_id) { get_called = true; OpenStruct.new(authorized?: true) }) do
@@ -1397,11 +1392,8 @@ module MolliePay
 
     test "mollie_release_authorization raises when the live payment is not authorized" do
       payment = mollie_pay_payments(:acme_first)
-      mollie_payment = Object.new
-      mollie_payment.define_singleton_method(:authorized?) { false }
-      mollie_payment.define_singleton_method(:release_authorization) { |_options = {}| flunk "release should not be called" }
 
-      Mollie::Payment.stub(:get, mollie_payment) do
+      Mollie::Payment.stub(:get, fake_mollie_authorizable_payment(status: "paid")) do
         assert_raises(MolliePay::PaymentNotAuthorized) do
           @org.mollie_release_authorization(payment)
         end
@@ -1409,12 +1401,7 @@ module MolliePay
     end
 
     test "mollie_release_authorization raises for payment not belonging to this customer" do
-      other_org = Organization.create!(name: "Other Org", email: "other@org.nl")
-      other_customer = MolliePay::Customer.create!(mollie_id: "cst_other_rel", owner: other_org)
-      other_payment = MolliePay::Payment.create!(
-        customer: other_customer, mollie_id: "tr_other_rel",
-        status: "authorized", amount: BigDecimal("50.00"), currency: "EUR", sequence_type: "oneoff"
-      )
+      other_payment = create_foreign_authorized_payment("rel")
       get_called = false
 
       Mollie::Payment.stub(:get, ->(_id) { get_called = true; OpenStruct.new(authorized?: true) }) do
@@ -1425,5 +1412,16 @@ module MolliePay
 
       assert_not get_called
     end
+
+    private
+
+      def create_foreign_authorized_payment(suffix)
+        other_org = Organization.create!(name: "Other Org", email: "other-#{suffix}@org.nl")
+        other_customer = MolliePay::Customer.create!(mollie_id: "cst_other_#{suffix}", owner: other_org)
+        MolliePay::Payment.create!(
+          customer: other_customer, mollie_id: "tr_other_#{suffix}",
+          status: "authorized", amount: BigDecimal("50.00"), currency: "EUR", sequence_type: "oneoff"
+        )
+      end
   end
 end

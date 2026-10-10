@@ -8,6 +8,9 @@ require "mollie_pay/decimal_money_type"
 require "mollie_pay/engine"
 
 module MolliePay
+  PAYMENT_LINE_MONEY_FIELDS = %i[ unitPrice totalAmount vatAmount discountAmount ].freeze
+  private_constant :PAYMENT_LINE_MONEY_FIELDS
+
   # List enabled payment methods. Optionally filter by amount and currency.
   # Returns Mollie SDK objects directly (Mollie::List of Mollie::Method).
   #
@@ -115,9 +118,6 @@ module MolliePay
     params[:lines]           = lines.map { |line| build_payment_line(line) } if lines
     params
   end
-
-  PAYMENT_LINE_MONEY_FIELDS = %i[ unitPrice totalAmount vatAmount discountAmount ].freeze
-  private_constant :PAYMENT_LINE_MONEY_FIELDS
 
   def self.build_payment_line(line)
     built = deep_camelize_keys(line)
