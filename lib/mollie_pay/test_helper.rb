@@ -155,6 +155,45 @@ module MolliePay
       Mollie::Refund.stub(:create, response, &block)
     end
 
+    # Stub Mollie::Payment.get (returning an authorized payment) and
+    # Mollie::Payment::Capture.create together. Note: Mollie::Payment.get is
+    # overridden for the whole block.
+    #
+    #   stub_mollie_capture_create do
+    #     capture = @user.mollie_capture(payment)
+    #     assert capture.id.start_with?("cpt_")
+    #   end
+    #
+    # Pass `status:` to test the not-authorized guard:
+    #
+    #   stub_mollie_capture_create(status: "open") do
+    #     assert_raises(MolliePay::PaymentNotAuthorized) { @user.mollie_capture(payment) }
+    #   end
+    #
+    def stub_mollie_capture_create(status: "authorized", **overrides, &block)
+      response = fake_mollie_capture(**overrides)
+      Mollie::Payment.stub(:get, fake_mollie_authorizable_payment(status: status)) do
+        Mollie::Payment::Capture.stub(:create, response, &block)
+      end
+    end
+
+    # Stub Mollie::Payment.get with a payment whose release_authorization
+    # succeeds. Note: Mollie::Payment.get is overridden for the whole block.
+    #
+    #   stub_mollie_payment_release_authorization do
+    #     @user.mollie_release_authorization(payment)
+    #   end
+    #
+    # Pass `status:` to test the not-authorized guard:
+    #
+    #   stub_mollie_payment_release_authorization(status: "paid") do
+    #     assert_raises(MolliePay::PaymentNotAuthorized) { @user.mollie_release_authorization(payment) }
+    #   end
+    #
+    def stub_mollie_payment_release_authorization(status: "authorized", &block)
+      Mollie::Payment.stub(:get, fake_mollie_authorizable_payment(status: status), &block)
+    end
+
     # ── Next-Gen Webhook Event helpers ──────────────────────────────
     #
     # Post a signed next-gen webhook event to the engine's webhook_events
@@ -211,6 +250,24 @@ module MolliePay
     def fake_mollie_subscription(id: nil, status: "active")
       id ||= "sub_test#{SecureRandom.hex(4)}"
       OpenStruct.new(id: id, status: status)
+    end
+
+    # Build a fake Mollie capture response (OpenStruct). The SDK capture object
+    # exposes id, amount and payment_id.
+    def fake_mollie_capture(id: nil, payment_id: nil, amount: nil)
+      id ||= "cpt_test#{SecureRandom.hex(4)}"
+      OpenStruct.new(id: id, payment_id: payment_id, amount: amount)
+    end
+
+    # Build a fake Mollie payment that answers authorized? and accepts a
+    # release_authorization call. Plain Object because OpenStruct rejects
+    # arguments on release_authorization(idempotency_key:).
+    def fake_mollie_authorizable_payment(status: "authorized")
+      payment = Object.new
+      payment.define_singleton_method(:status) { status }
+      payment.define_singleton_method(:authorized?) { status == "authorized" }
+      payment.define_singleton_method(:release_authorization) { |_options = {}| true }
+      payment
     end
 
     # Build a fake Mollie refund response (OpenStruct).
@@ -393,8 +450,15 @@ module MolliePay
     #     MolliePay::ProcessWebhookJob.perform_now(event.id)
     #   end
     #
-    def webmock_mollie_payment_get(payment_id, **overrides)
-      body = mollie_fixture("payment", id: payment_id, **overrides)
+    # Pass `fixture:` to load another payment fixture, such as the Billink
+    # (manual capture) payment with lines and a billing address:
+    #
+    #   webmock_mollie_payment_get("tr_abc123", fixture: "payment_billink", status: "authorized") do
+    #     MolliePay::ProcessWebhookJob.perform_now("tr_abc123")
+    #   end
+    #
+    def webmock_mollie_payment_get(payment_id, fixture: "payment", **overrides)
+      body = mollie_fixture(fixture, id: payment_id, **overrides)
       stub_request(:get, "#{MOLLIE_API_BASE}/payments/#{payment_id}")
         .to_return(status: 200, body: body, headers: { "Content-Type" => "application/hal+json" })
       yield

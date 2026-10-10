@@ -8,6 +8,9 @@ require "mollie_pay/decimal_money_type"
 require "mollie_pay/engine"
 
 module MolliePay
+  PAYMENT_LINE_MONEY_FIELDS = %i[ unitPrice totalAmount vatAmount discountAmount ].freeze
+  private_constant :PAYMENT_LINE_MONEY_FIELDS
+
   # List enabled payment methods. Optionally filter by amount and currency.
   # Returns Mollie SDK objects directly (Mollie::List of Mollie::Method).
   #
@@ -91,17 +94,51 @@ module MolliePay
     Mollie::SalesInvoice.delete(id)
   end
 
-  def self.build_sales_invoice_line(line)
+  # Build the optional Create Payment parameters for order lines, addresses,
+  # capture mode and locale. Accepts snake_case Ruby hashes — keys are
+  # camelized before sending. Line money fields (unit_price, total_amount,
+  # vat_amount, discount_amount) accept a BigDecimal and are converted to
+  # Mollie format; a wire-format hash passes through unchanged.
+  # Only the keys that were given appear in the result.
+  #
+  #   MolliePay.build_payment_params(
+  #     capture_mode: "manual",
+  #     billing_address: { given_name: "Jan", family_name: "Jansen", street_and_number: "Keizersgracht 126",
+  #                        postal_code: "1015 CW", city: "Amsterdam", country: "NL", email: "jan@example.com" },
+  #     lines: [{ description: "Widget", quantity: 1, unit_price: BigDecimal("121.00"),
+  #               total_amount: BigDecimal("121.00"), vat_rate: "21.00", vat_amount: BigDecimal("21.00") }]
+  #   )
+  #
+  def self.build_payment_params(lines: nil, billing_address: nil, shipping_address: nil, capture_mode: nil, locale: nil)
+    params = {}
+    params[:captureMode]     = capture_mode                        if capture_mode
+    params[:locale]          = locale                              if locale
+    params[:billingAddress]  = deep_camelize_keys(billing_address)  if billing_address
+    params[:shippingAddress] = deep_camelize_keys(shipping_address) if shipping_address
+    params[:lines]           = lines.map { |line| build_payment_line(line) } if lines
+    params
+  end
+
+  def self.build_payment_line(line)
     built = deep_camelize_keys(line)
-    if built[:unitPrice].is_a?(Numeric)
-      built[:unitPrice] = {
-        currency: configuration.currency,
-        value:    format("%.2f", built[:unitPrice])
-      }
+    PAYMENT_LINE_MONEY_FIELDS.each do |field|
+      built[field] = mollie_wire_amount(built[field]) if built[field].is_a?(Numeric)
     end
     built
   end
+  private_class_method :build_payment_line
+
+  def self.build_sales_invoice_line(line)
+    built = deep_camelize_keys(line)
+    built[:unitPrice] = mollie_wire_amount(built[:unitPrice]) if built[:unitPrice].is_a?(Numeric)
+    built
+  end
   private_class_method :build_sales_invoice_line
+
+  def self.mollie_wire_amount(amount)
+    { currency: configuration.currency, value: format("%.2f", amount) }
+  end
+  private_class_method :mollie_wire_amount
 
   def self.deep_camelize_keys(hash)
     hash.each_with_object({}) do |(key, value), result|

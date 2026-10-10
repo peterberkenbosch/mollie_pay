@@ -58,8 +58,10 @@ module MolliePay
 
     # === Payments ===
 
-    def mollie_pay_once(amount:, description:, redirect_url: nil, method: nil, metadata: nil)
-      create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type: "oneoff")
+    def mollie_pay_once(amount:, description:, redirect_url: nil, method: nil, metadata: nil,
+                        lines: nil, billing_address: nil, shipping_address: nil, capture_mode: nil, locale: nil)
+      extra_params = MolliePay.build_payment_params(lines:, billing_address:, shipping_address:, capture_mode:, locale:)
+      create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type: "oneoff", extra_params:)
     end
 
     def mollie_pay_first(amount:, description:, redirect_url: nil, method: nil, metadata: nil)
@@ -192,6 +194,28 @@ module MolliePay
       payment
     end
 
+    # Capture an authorized payment (manual-capture methods such as Billink).
+    # Captures the full authorized amount unless `amount` is given. The payment
+    # becomes "paid" through the subsequent webhook; nothing is written locally.
+    def mollie_capture(payment, amount: nil)
+      verify_payment_ownership!(payment)
+      verify_payment_authorized!(payment)
+
+      params = { payment_id: payment.mollie_id, idempotency_key: SecureRandom.uuid }
+      params[:amount] = mollie_amount(amount) if amount
+      Mollie::Payment::Capture.create(**params)
+    end
+
+    # Ask Mollie to release an authorization. Mollie processes the release
+    # asynchronously; the payment becomes "canceled" through the subsequent
+    # webhook, which also fires on_mollie_payment_canceled.
+    def mollie_release_authorization(payment)
+      verify_payment_ownership!(payment)
+      mollie_payment = verify_payment_authorized!(payment)
+
+      mollie_payment.release_authorization(idempotency_key: SecureRandom.uuid)
+    end
+
     def mollie_refund(payment, amount: nil)
       verify_payment_ownership!(payment)
       refund_amount = amount || payment.amount
@@ -284,7 +308,16 @@ module MolliePay
       raise MolliePay::Error, "Payment does not belong to this customer" unless mollie_payments.exists?(id: payment.id)
     end
 
-    def create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type:)
+    # Fetches the live payment so a delayed webhook cannot allow or block the
+    # operation wrongly.
+    def verify_payment_authorized!(payment)
+      mollie_payment = payment.mollie_record
+      raise MolliePay::PaymentNotAuthorized, "Payment #{payment.mollie_id} is not authorized" unless mollie_payment.authorized?
+
+      mollie_payment
+    end
+
+    def create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type:, extra_params: {})
       customer = mollie_customer!
 
       Payment.transaction do
@@ -307,6 +340,7 @@ module MolliePay
           sequenceType:    sequence_type,
           method:          method,
           metadata:        metadata,
+          **extra_params,
           idempotency_key: SecureRandom.uuid
         )
 

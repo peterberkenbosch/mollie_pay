@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- Billink (buy now, pay later) support. `mollie_pay_once` accepts `lines:`,
+  `billing_address:`, `shipping_address:`, `capture_mode:` and `locale:`; line
+  money fields are converted from `BigDecimal` to Mollie's wire format by the new
+  `MolliePay.build_payment_params`.
+- `mollie_capture(payment, amount: nil)` and `mollie_release_authorization(payment)`
+  on `Billable` for authorized (manual-capture) payments, guarded by the live
+  Mollie status and raising `MolliePay::PaymentNotAuthorized` otherwise.
+- `MolliePay::Payment.authorized` scope.
+- Test helpers `stub_mollie_capture_create`, `stub_mollie_payment_release_authorization`,
+  `fake_mollie_capture`, a `fixture:` keyword on `webmock_mollie_payment_get`, and
+  the `payment_billink.json` fixture.
+
 ## [0.7.0] - 2026-07-14
 
 ### Changed

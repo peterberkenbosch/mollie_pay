@@ -26,6 +26,7 @@ module MolliePay
     scope :paid,      -> { where(status: "paid") }
     scope :failed,    -> { where(status: "failed") }
     scope :open,      -> { where(status: "open") }
+    scope :authorized, -> { where(status: "authorized") }
     scope :recurring, -> { where(sequence_type: "recurring") }
     scope :first_payments, -> { where(sequence_type: "first") }
 
