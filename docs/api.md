@@ -261,10 +261,13 @@ organization.mollie_release_authorization(payment)
 ```
 
 Same ownership and live-status checks as capture. Mollie processes the release
-asynchronously and does not guarantee it succeeds; the payment becomes
-`canceled` through the next webhook, which fires `on_mollie_payment_canceled`.
-If Mollie does not honor the release, the payment stays `authorized` and you can
-retry or capture.
+asynchronously and does not guarantee it succeeds. When nothing was captured,
+the payment becomes `canceled` through the next webhook, which fires
+`on_mollie_payment_canceled`. When a capture already succeeded (a partial
+capture on methods that allow it; Billink is full-capture only), Mollie moves
+the payment to `paid` instead and `on_mollie_payment_paid` fires. If Mollie does
+not honor the release, the payment stays `authorized` and you can retry or
+capture.
 
 Refunds (`mollie_refund`) apply only after capture.
 

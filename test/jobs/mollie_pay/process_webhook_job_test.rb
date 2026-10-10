@@ -16,13 +16,10 @@ module MolliePay
 
     test "billink webhook moves an open payment to authorized once and fires the hook once" do
       payment = mollie_pay_payments(:acme_oneoff)
-      customer = payment.customer
 
       with_organization_hook(:on_mollie_payment_authorized) do |calls|
         2.times do
-          webmock_mollie_payment_get(payment.mollie_id, fixture: "payment_billink", status: "authorized", customer_id: customer.mollie_id) do
-            ProcessWebhookJob.perform_now(payment.mollie_id)
-          end
+          deliver_billink_webhook(payment, status: "authorized")
         end
 
         assert_equal 1, calls.size
@@ -35,17 +32,12 @@ module MolliePay
 
     test "billink webhook keeps authorized_at unchanged on a repeated authorized webhook" do
       payment = mollie_pay_payments(:acme_oneoff)
-      customer = payment.customer
 
-      webmock_mollie_payment_get(payment.mollie_id, fixture: "payment_billink", status: "authorized", customer_id: customer.mollie_id) do
-        ProcessWebhookJob.perform_now(payment.mollie_id)
-      end
+      deliver_billink_webhook(payment, status: "authorized")
       first_authorized_at = payment.reload.authorized_at
 
       travel 1.hour do
-        webmock_mollie_payment_get(payment.mollie_id, fixture: "payment_billink", status: "authorized", customer_id: customer.mollie_id) do
-          ProcessWebhookJob.perform_now(payment.mollie_id)
-        end
+        deliver_billink_webhook(payment, status: "authorized")
       end
 
       assert_equal first_authorized_at, payment.reload.authorized_at
@@ -53,12 +45,9 @@ module MolliePay
 
     test "billink webhook moves an authorized payment to paid after capture and fires the paid hook once" do
       payment = mollie_pay_payments(:acme_authorized)
-      customer = payment.customer
 
       with_organization_hook(:on_mollie_payment_paid) do |calls|
-        webmock_mollie_payment_get(payment.mollie_id, fixture: "payment_billink", status: "paid", customer_id: customer.mollie_id) do
-          ProcessWebhookJob.perform_now(payment.mollie_id)
-        end
+        deliver_billink_webhook(payment, status: "paid")
 
         assert_equal 1, calls.size
         assert_equal payment, calls.first
@@ -70,14 +59,25 @@ module MolliePay
       assert_not_nil payment.authorized_at
     end
 
+    test "billink webhook moves an authorized payment to canceled after release and fires the canceled hook" do
+      payment = mollie_pay_payments(:acme_authorized)
+
+      with_organization_hook(:on_mollie_payment_canceled) do |calls|
+        deliver_billink_webhook(payment, status: "canceled")
+
+        assert_equal 1, calls.size
+      end
+
+      payment.reload
+      assert_equal "canceled", payment.status
+      assert_not_nil payment.canceled_at
+    end
+
     test "billink webhook moves an authorized payment to expired and fires the expired hook" do
       payment = mollie_pay_payments(:acme_authorized)
-      customer = payment.customer
 
       with_organization_hook(:on_mollie_payment_expired) do |calls|
-        webmock_mollie_payment_get(payment.mollie_id, fixture: "payment_billink", status: "expired", customer_id: customer.mollie_id) do
-          ProcessWebhookJob.perform_now(payment.mollie_id)
-        end
+        deliver_billink_webhook(payment, status: "expired")
 
         assert_equal 1, calls.size
       end
@@ -174,6 +174,12 @@ module MolliePay
     end
 
     private
+
+      def deliver_billink_webhook(payment, status:)
+        webmock_mollie_payment_get(payment.mollie_id, fixture: "payment_billink", status: status, customer_id: payment.customer.mollie_id) do
+          ProcessWebhookJob.perform_now(payment.mollie_id)
+        end
+      end
 
       # Payment.record_from_mollie reloads the owner, so a singleton method on
       # a test-local instance is never reached. Define the hook on the class

@@ -36,8 +36,8 @@ Manual-capture methods such as Billink move a payment to `authorized` before
 `paid`. The webhook path above handles this without extra setup: the first
 `authorized` webhook sets `authorized_at` and fires `on_mollie_payment_authorized`.
 After `mollie_capture`, the next webhook moves the payment to `paid`; after
-`mollie_release_authorization`, to `canceled`; and after 28 days without a
-capture, to `expired`. Each transition fires its hook once. Capture-level events
+`mollie_release_authorization`, to `canceled` (or to `paid` when a capture had
+already succeeded); and after 28 days without a capture, to `expired`. Each transition fires its hook once. Capture-level events
 (`capture.succeeded`, `capture.failed`) exist only as next-gen webhook events and
 are logged, not processed.
 
