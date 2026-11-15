@@ -4,17 +4,17 @@ require "mollie_pay/version"
 require "mollie_pay/errors"
 require "mollie_pay/configuration"
 require "mollie_pay/webhook_signature"
-require "mollie_pay/decimal_money_type"
 require "mollie_pay/engine"
 
 module MolliePay
   # Currencies Mollie expects without decimals ("1000", not "1000.00").
   ZERO_DECIMAL_CURRENCIES = %w[ ISK JPY ].freeze
 
-  # Amounts are never rounded before storing, but they are bounded: anything
-  # with more digits than this is refused.
-  MAX_INTEGER_DIGITS = 12
-  MAX_DECIMAL_PLACES = 8
+  # Money is a decimal(15,4) column and a BigDecimal in Ruby. SQLite keeps a
+  # decimal as a REAL, exact to fifteen significant digits, so amounts stop at
+  # a hundred million: four digits below the edge, which leaves room for sums.
+  MAX_AMOUNT  = BigDecimal("100_000_000")
+  MONEY_SCALE = 4
 
   # Convert an exact amount to Mollie's wire format { currency:, value: "10.00" }.
   # This is the one place an amount is rounded: half up, to the currency's
@@ -34,9 +34,7 @@ module MolliePay
   end
 
   def self.amount_within_precision?(decimal)
-    decimal.finite? &&
-      decimal.scale <= MAX_DECIMAL_PLACES &&
-      decimal.precision - decimal.scale <= MAX_INTEGER_DIGITS
+    decimal.finite? && decimal.abs <= MAX_AMOUNT && decimal.scale <= MONEY_SCALE
   end
 
   # List enabled payment methods. Optionally filter by amount and currency.

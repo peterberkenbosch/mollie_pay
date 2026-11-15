@@ -8,11 +8,6 @@ module MolliePay
     has_many   :refunds,      dependent: :destroy
     has_many   :chargebacks,  dependent: :destroy
 
-    attribute :amount,              :money
-    attribute :amount_refunded,     :money
-    attribute :amount_remaining,    :money
-    attribute :amount_captured,     :money
-    attribute :amount_charged_back, :money
 
     # amount_remaining uses nil-semantics: nil = "never fetched from Mollie",
     # 0 = "fully captured/refunded". Only populated when Mollie includes the field.

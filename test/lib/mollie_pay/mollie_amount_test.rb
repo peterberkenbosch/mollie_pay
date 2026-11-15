@@ -19,18 +19,27 @@ class MolliePay::MollieAmountTest < ActiveSupport::TestCase
   end
 
   test "refuses amounts that are not finite or have too many digits" do
-    [ "Infinity", "NaN", "1e1000000", "1000000000000", "0.123456789" ].each do |amount|
+    [ "Infinity", "NaN", "1e1000000", "100000000.01", "0.12345" ].each do |amount|
       assert_raises(MolliePay::InvalidAmount) { MolliePay.mollie_amount(BigDecimal(amount)) }
     end
   end
 
-  test "a stored amount with too many digits is invalid, not rounded" do
+  test "a stored amount with a fifth decimal is invalid, not rounded" do
     payment = mollie_pay_payments(:acme_first)
 
-    payment.amount = BigDecimal("10.12345678")
+    payment.amount = BigDecimal("10.1234")
     assert payment.valid?
 
-    payment.amount = BigDecimal("10.123456789")
+    payment.amount = BigDecimal("10.12345")
     assert_not payment.valid?
+  end
+
+  test "money round-trips through the decimal column as an exact BigDecimal" do
+    payment = mollie_pay_payments(:acme_first)
+    payment.update!(amount: BigDecimal("19.9995"))
+
+    assert_instance_of BigDecimal, payment.reload.amount
+    assert_equal BigDecimal("19.9995"), payment.amount
+    assert payment.valid?
   end
 end

@@ -45,15 +45,16 @@ Two conventions this repo adopts from it:
 - **No JavaScript, no asset pipeline, no views.** This engine is headless.
   Delete anything the generator adds in `app/assets`, `app/helpers` or
   `app/views`.
-- **Amounts are always exact `BigDecimal`.** Never cents, never floats. Stored in
-  TEXT-affinity `:string` columns via the registered `:money` cast
-  (`MolliePay::DecimalMoneyType`); never a `:decimal` column (SQLite NUMERIC
-  affinity stores REAL/float and loses precision). Convert to Mollie's wire format
-  only at the API boundary, using `MolliePay.mollie_amount` and
-  `mollie_value_to_decimal`. Never round before storing: `MolliePay.mollie_amount`
-  is the one place an amount is rounded (half up, to the currency's minor unit).
-  Never `format("%.2f", amount)`, which goes through a Float. Amounts beyond 12
-  integer digits or 8 decimal places are refused.
+- **Money is a `decimal(15,4)` column and a `BigDecimal` in Ruby, never
+  integer cents and never a Float.** This is the family rule (charter, ADR 006).
+  Four decimals is what accounting software keeps. Fifteen significant digits
+  because SQLite stores a decimal as a REAL and a double holds exactly fifteen.
+  Amounts stop at `MolliePay::MAX_AMOUNT` (a hundred million), which leaves room
+  for sums. Refuse a fifth decimal instead of letting the column round it.
+  Convert to Mollie's wire format only at the API boundary, using
+  `MolliePay.mollie_amount` and `mollie_value_to_decimal`. `mollie_amount` is the
+  one place an amount is rounded (half up, to the currency's minor unit). Never
+  `format("%.2f", amount)`, which goes through a Float. No registered money cast.
 
 ---
 
@@ -254,7 +255,7 @@ bin/rails test test/jobs
 - Use `Time.current` not `Time.now`
 - Use `Date.today` not `Date.new`
 - Raise named errors from `MolliePay::Error` subclasses, never raw `RuntimeError`
-- All money amounts: **exact `BigDecimal`**, stored as text via the `:money` cast,
+- All money amounts: **`BigDecimal`** in a `decimal(15,4)` column,
   converted to Mollie's wire format only at the API call boundary
 - Use `params.expect` not `params.require.permit` (Rails 8+)
 - Expanded conditionals over guard clauses — guard clauses only for early

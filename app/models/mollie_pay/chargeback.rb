@@ -2,7 +2,6 @@ module MolliePay
   class Chargeback < ApplicationRecord
     belongs_to :payment
 
-    attribute :amount, :money
 
     validates :mollie_id, presence: true, uniqueness: true
     validates :amount,    presence: true, numericality: { greater_than: 0 }

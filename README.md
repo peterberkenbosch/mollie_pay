@@ -14,7 +14,7 @@ Rails 8.1+, Mollie-native.
 - **Hooks, not events.** Override plain Ruby methods in your model. No event bus, no pub/sub, no callbacks to register.
 - **Boring Rails.** Models do the work. No service objects, no form objects, no interactors.
 - **Idempotent.** Hooks fire only on actual state transitions. Duplicate webhooks are handled safely.
-- **BigDecimal, never cents.** All amounts are exact `BigDecimal` (stored as text). Conversion to Mollie's wire format happens only at the API boundary.
+- **BigDecimal, never cents.** All amounts are `BigDecimal`, stored in `decimal(15,4)` columns. Conversion to Mollie's wire format happens only at the API boundary.
 
 ## Installation
 

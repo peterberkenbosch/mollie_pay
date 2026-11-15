@@ -4,7 +4,6 @@ module MolliePay
 
     belongs_to :payment
 
-    attribute :amount, :money
 
     validates :mollie_id, presence: true, uniqueness: true
     validates :status,    inclusion: { in: STATUSES }
