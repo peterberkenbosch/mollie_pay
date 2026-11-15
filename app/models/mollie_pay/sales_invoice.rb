@@ -14,6 +14,7 @@ module MolliePay
     validates :mollie_id, presence: true, uniqueness: true
     validates :status,    inclusion: { in: STATUSES }
     validates :amount,    numericality: { greater_than: 0 }, allow_nil: true
+    validate  :amount_within_precision
     validates :currency,  presence: true, allow_nil: true
 
     scope :draft,   -> { where(status: STATUS_DRAFT) }
@@ -71,7 +72,7 @@ module MolliePay
     end
 
     def mollie_amount
-      { currency: currency, value: format("%.2f", amount) }
+      MolliePay.mollie_amount(amount, currency: currency)
     end
 
     private_class_method def self.notify_billable(invoice, previous_status)

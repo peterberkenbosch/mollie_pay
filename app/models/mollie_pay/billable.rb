@@ -344,12 +344,8 @@ module MolliePay
       end
     end
 
-    # Convert a BigDecimal amount to Mollie's wire format { currency:, value: "10.00" }.
     def mollie_amount(amount)
-      {
-        currency: MolliePay.configuration.currency,
-        value:    format("%.2f", amount)
-      }
+      MolliePay.mollie_amount(amount)
     end
   end
 end

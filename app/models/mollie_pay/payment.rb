@@ -21,6 +21,7 @@ module MolliePay
     validates :status,        inclusion: { in: STATUSES }
     validates :sequence_type, inclusion: { in: SEQUENCE_TYPES }
     validates :amount,        presence: true, numericality: { greater_than: 0 }
+    validate  :amount_within_precision
     validates :currency,      presence: true
 
     scope :paid,      -> { where(status: "paid") }
@@ -108,7 +109,7 @@ module MolliePay
 
     # Mollie expects amount as { currency: "EUR", value: "10.00" }
     def mollie_amount
-      { currency: currency, value: format("%.2f", amount) }
+      MolliePay.mollie_amount(amount, currency: currency)
     end
   end
 end

@@ -6,6 +6,7 @@ module MolliePay
 
     validates :mollie_id, presence: true, uniqueness: true
     validates :amount,    presence: true, numericality: { greater_than: 0 }
+    validate  :amount_within_precision
     validates :currency,  presence: true
 
     def self.sync_for_payment(payment)
@@ -55,7 +56,7 @@ module MolliePay
     end
 
     def mollie_amount
-      { currency: currency, value: format("%.2f", amount) }
+      MolliePay.mollie_amount(amount, currency: currency)
     end
 
     private

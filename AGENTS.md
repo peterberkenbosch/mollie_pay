@@ -49,7 +49,11 @@ Two conventions this repo adopts from it:
   TEXT-affinity `:string` columns via the registered `:money` cast
   (`MolliePay::DecimalMoneyType`); never a `:decimal` column (SQLite NUMERIC
   affinity stores REAL/float and loses precision). Convert to Mollie's wire format
-  only at the API boundary, using `mollie_amount` and `mollie_value_to_decimal`.
+  only at the API boundary, using `MolliePay.mollie_amount` and
+  `mollie_value_to_decimal`. Never round before storing: `MolliePay.mollie_amount`
+  is the one place an amount is rounded (half up, to the currency's minor unit).
+  Never `format("%.2f", amount)`, which goes through a Float. Amounts beyond 12
+  integer digits or 8 decimal places are refused.
 
 ---
 

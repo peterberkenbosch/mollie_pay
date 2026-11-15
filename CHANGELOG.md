@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+- Amounts sent to Mollie are rounded half up in `BigDecimal`. They went through
+  `format("%.2f", ...)`, which converts to a Float and rounds ties to even, so
+  `10.125` was sent as `"10.12"` instead of `"10.13"`. Whole-cent amounts are
+  unaffected.
+- Zero-decimal currencies (`JPY`, `ISK`) are sent without decimals (`"1000"`).
+
+### Added
+- `MolliePay.mollie_amount(amount, currency:)`, the single conversion to Mollie's
+  wire format.
+- Amounts must be finite, with at most 12 digits before and 8 after the decimal
+  point. A stored amount beyond that is invalid, and sending one raises
+  `MolliePay::InvalidAmount`. Nothing is rounded before it is stored.
+
 ## [0.7.0] - 2026-07-14
 
 ### Changed
