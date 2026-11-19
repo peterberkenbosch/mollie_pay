@@ -16,6 +16,37 @@ module MolliePay
       assert_not refund.valid?
     end
 
+    test "accepts every status Mollie returns" do
+      refund = mollie_pay_refunds(:acme_refund)
+
+      %w[ queued pending processing refunded failed canceled ].each do |status|
+        refund.status = status
+        assert refund.valid?, "expected #{status} to be a valid refund status"
+      end
+    end
+
+    test "record_from_mollie stores a canceled refund without firing the refund hook" do
+      existing = mollie_pay_refunds(:acme_refund)
+      hook_calls = []
+      Organization.define_method(:on_mollie_refund_processed) { |refund| hook_calls << refund }
+
+      mollie_refund = stub_mollie_refund(
+        id:              existing.mollie_id,
+        status:          "canceled",
+        payment_id:      existing.payment.mollie_id,
+        amount_value:    "75.00",
+        amount_currency: "EUR"
+      )
+
+      Refund.record_from_mollie(mollie_refund)
+
+      assert_equal "canceled", existing.reload.status
+      assert_nil existing.refunded_at
+      assert_empty hook_calls
+    ensure
+      Organization.remove_method(:on_mollie_refund_processed)
+    end
+
     test "requires positive amount" do
       refund = mollie_pay_refunds(:acme_refund)
       refund.amount = 0

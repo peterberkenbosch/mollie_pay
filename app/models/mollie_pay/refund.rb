@@ -1,6 +1,6 @@
 module MolliePay
   class Refund < ApplicationRecord
-    STATUSES = %w[ queued pending processing refunded failed ].freeze
+    STATUSES = %w[ queued pending processing refunded failed canceled ].freeze
 
     belongs_to :payment
 

@@ -34,7 +34,7 @@ class Mollie::SalesInvoiceTest < ActiveSupport::TestCase
     paid = Mollie::SalesInvoice.new("status" => "paid")
     assert paid.paid?
 
-    canceled = Mollie::SalesInvoice.new("status" => "canceled")
+    canceled = Mollie::SalesInvoice.new("status" => "cancelled")
     assert canceled.canceled?
   end
 
