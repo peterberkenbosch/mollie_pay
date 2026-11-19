@@ -18,6 +18,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   `fake_mollie_capture`, a `fixture:` keyword on `webmock_mollie_payment_get`, and
   the `payment_billink.json` fixture.
 
+### Changed
+- **Breaking:** `MolliePay::SalesInvoice::STATUS_CANCELED` and
+  `Mollie::SalesInvoice::STATUS_CANCELED` are now `"cancelled"`, the spelling
+  Mollie's API returns. The old value `"canceled"` matched no API response and is
+  no longer a valid sales invoice status. `canceled?` keeps its name.
+
+### Fixed
+- `MolliePay::SalesInvoice` accepts every status Mollie returns: `issuing`,
+  `pending-payment`, `overdue`, `payment-reversed`, `cancelled`, `expired` and
+  `failed` raised `ActiveRecord::RecordInvalid`, in `mollie_create_sales_invoice`
+  after the invoice already existed at Mollie.
+- `MolliePay::Refund` accepts the `canceled` status, which raised
+  `ActiveRecord::RecordInvalid` in `Refund.record_from_mollie`.
+
 ## [0.8.0] - 2026-11-19
 
 ### Changed

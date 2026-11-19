@@ -34,7 +34,8 @@ Owner (your model)
 | Payment | `open`, `pending`, `authorized`, `paid`, `failed`, `canceled`, `expired` |
 | Subscription | `pending`, `active`, `suspended`, `canceled`, `completed` |
 | Mandate | `pending`, `valid`, `invalid` |
-| Refund | `queued`, `pending`, `processing`, `refunded`, `failed` |
+| Refund | `queued`, `pending`, `processing`, `refunded`, `failed`, `canceled` |
+| Sales invoice | `draft`, `issuing`, `issued`, `pending-payment`, `paid`, `overdue`, `payment-reversed`, `cancelled`, `expired`, `failed` |
 
 ### Scopes
 
