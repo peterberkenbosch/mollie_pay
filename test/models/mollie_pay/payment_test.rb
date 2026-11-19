@@ -22,6 +22,13 @@ module MolliePay
       assert_equal expected, mollie_pay_payments(:acme_first).mollie_amount
     end
 
+    test "authorized scope returns only authorized payments" do
+      authorized = Payment.authorized
+      assert_includes authorized, mollie_pay_payments(:acme_authorized)
+      assert_not_includes authorized, mollie_pay_payments(:acme_oneoff)
+      assert_not_includes authorized, mollie_pay_payments(:acme_first)
+    end
+
     test "paid scope returns only paid payments" do
       paid = Payment.paid
       assert_includes paid, mollie_pay_payments(:acme_first)

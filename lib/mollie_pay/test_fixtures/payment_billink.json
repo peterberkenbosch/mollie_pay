@@ -1,0 +1,79 @@
+{
+  "resource": "payment",
+  "id": "tr_billink1234AB",
+  "mode": "test",
+  "createdAt": "2026-10-09T12:00:00+00:00",
+  "amount": {
+    "value": "121.00",
+    "currency": "EUR"
+  },
+  "description": "Order 1001",
+  "method": "billink",
+  "metadata": null,
+  "status": "authorized",
+  "isCancelable": false,
+  "authorizedAt": "2026-10-09T12:01:00+00:00",
+  "captureMode": "manual",
+  "captureBefore": "2026-11-06T12:01:00+00:00",
+  "amountCaptured": {
+    "value": "0.00",
+    "currency": "EUR"
+  },
+  "amountRemaining": {
+    "value": "121.00",
+    "currency": "EUR"
+  },
+  "locale": "nl_NL",
+  "profileId": "pfl_TestProfile",
+  "customerId": "cst_test1234AB",
+  "sequenceType": "oneoff",
+  "redirectUrl": "https://example.com/return",
+  "webhookUrl": "https://example.com/mollie_pay/webhooks",
+  "billingAddress": {
+    "givenName": "Jan",
+    "familyName": "Jansen",
+    "streetAndNumber": "Keizersgracht 126",
+    "postalCode": "1015 CW",
+    "city": "Amsterdam",
+    "country": "NL",
+    "email": "jan@example.com"
+  },
+  "lines": [
+    {
+      "type": "physical",
+      "description": "Widget",
+      "quantity": 1,
+      "unitPrice": {
+        "value": "121.00",
+        "currency": "EUR"
+      },
+      "totalAmount": {
+        "value": "121.00",
+        "currency": "EUR"
+      },
+      "vatRate": "21.00",
+      "vatAmount": {
+        "value": "21.00",
+        "currency": "EUR"
+      }
+    }
+  ],
+  "_links": {
+    "self": {
+      "href": "https://api.mollie.com/v2/payments/tr_billink1234AB",
+      "type": "application/hal+json"
+    },
+    "checkout": {
+      "href": "https://www.mollie.com/checkout/select-method/billink1234AB",
+      "type": "text/html"
+    },
+    "dashboard": {
+      "href": "https://my.mollie.com/dashboard/org_12345678/payments/tr_billink1234AB",
+      "type": "text/html"
+    },
+    "documentation": {
+      "href": "https://docs.mollie.com/reference/get-payment",
+      "type": "text/html"
+    }
+  }
+}

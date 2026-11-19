@@ -82,6 +82,7 @@ response = fake_mollie_payment(id: "tr_test123", status: "paid")
 response = fake_mollie_customer(id: "cst_test123")
 response = fake_mollie_subscription(id: "sub_test123", status: "active")
 response = fake_mollie_refund(id: "re_test123", status: "queued")
+response = fake_mollie_capture(id: "cpt_test123", payment_id: "tr_test123")
 ```
 
 All IDs default to random values (`tr_test<hex>`, etc.) when not specified.
@@ -96,6 +97,11 @@ All IDs default to random values (`tr_test<hex>`, etc.) when not specified.
 | `stub_mollie_subscription_cancel` | `Mollie::Customer::Subscription.cancel` | Returns nil |
 | `stub_mollie_subscription_update` | `Mollie::Customer::Subscription.update` | `status: "active"`, random ID |
 | `stub_mollie_refund_create` | `Mollie::Refund.create` | `status: "queued"`, random ID |
+| `stub_mollie_capture_create` | `Mollie::Payment.get` (authorized payment) + `Mollie::Payment::Capture.create` | Random `cpt_` ID; `status: "open"` makes `mollie_capture` raise |
+| `stub_mollie_payment_release_authorization` | `Mollie::Payment.get` (authorized payment whose `release_authorization` returns true) | `status: "paid"` makes `mollie_release_authorization` raise |
+
+`stub_mollie_capture_create` and `stub_mollie_payment_release_authorization`
+override `Mollie::Payment.get` for the whole block.
 
 ## WebMock-based API stubs
 
@@ -125,8 +131,18 @@ class OrganizationIntegrationTest < ActiveSupport::TestCase
       assert_equal "paid", mollie_payment.status
     end
   end
+
+  test "billink authorization webhook" do
+    webmock_mollie_payment_get("tr_abc123", fixture: "payment_billink", status: "authorized", customer_id: "cst_xyz") do
+      MolliePay::ProcessWebhookJob.perform_now("tr_abc123")
+    end
+  end
 end
 ```
+
+`webmock_mollie_payment_get` loads `payment.json` by default. Pass
+`fixture: "payment_billink"` for a Billink (manual capture) payment with
+`captureMode`, `captureBefore`, `billingAddress` and `lines`.
 
 All WebMock helpers accept keyword overrides that merge into the JSON fixture:
 

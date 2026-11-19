@@ -27,3 +27,13 @@ acme_oneoff:
   amount: "75.00"
   currency: EUR
   sequence_type: oneoff
+
+acme_authorized:
+  id: 019f608e-1539-7e11-9c2a-5d0f3a7b8c01
+  customer_id: 019f608e-1539-755c-b1e4-67922fc9306b
+  mollie_id: tr_authorized123
+  status: authorized
+  amount: "121.00"
+  currency: EUR
+  sequence_type: oneoff
+  authorized_at: <%= 1.hour.ago %>

@@ -91,6 +91,36 @@ payment = current_organization.mollie_pay_once(
 redirect_to payment.checkout_url
 ```
 
+### Pay later with Billink (beta)
+
+Billink is a buy-now-pay-later method for consumers in the Netherlands,
+Belgium and Germany. It needs order lines, a billing address and manual
+capture; the customer pays Billink within 14 days of capture.
+
+```ruby
+payment = current_organization.mollie_pay_once(
+  amount: BigDecimal("121.00"), description: "Order 1001",
+  method: "billink", capture_mode: "manual", locale: "nl_NL",
+  billing_address: {
+    given_name: "Jan", family_name: "Jansen", street_and_number: "Keizersgracht 126",
+    postal_code: "1015 CW", city: "Amsterdam", country: "NL", email: "jan@example.com"
+  },
+  lines: [ {
+    description: "Widget", quantity: 1, unit_price: BigDecimal("121.00"),
+    total_amount: BigDecimal("121.00"), vat_rate: "21.00", vat_amount: BigDecimal("21.00")
+  } ]
+)
+redirect_to payment.checkout_url
+
+# Later, once the payment is authorized and the order has shipped:
+current_organization.mollie_capture(payment)
+
+# Or, to cancel the order before shipping:
+current_organization.mollie_release_authorization(payment)
+```
+
+See [docs/api.md](docs/api.md#pay-later-with-billink) for the full lifecycle.
+
 ### Upgrade or downgrade
 
 ```ruby
@@ -224,6 +254,10 @@ class Organization < ApplicationRecord
 
   def on_mollie_payment_paid(payment)
     # One-off payment confirmed
+  end
+
+  def on_mollie_payment_authorized(payment)
+    # Pay-later payment authorized — ship, then mollie_capture(payment)
   end
 
   def on_mollie_subscription_charged(payment)
