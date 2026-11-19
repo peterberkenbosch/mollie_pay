@@ -24,6 +24,36 @@ redirect_to payment.checkout_url
 handles consent display, bank authentication, and mandate creation. Your
 compliance obligations are minimal.
 
+#### Pay by Bank as the first payment
+
+Pay by Bank (`paybybank`) can be used as the first payment method. Mollie
+relaunched it on GoCardless technology in October 2026; it captures the
+customer's IBAN during checkout, which Mollie uses for the mandate. It is live
+in the Netherlands, with wider European rollout planned through 2027. Pay by
+Bank cannot be used for the recurring payments themselves: those are collected
+via SEPA Direct Debit on the mandate.
+
+```ruby
+payment = current_organization.mollie_pay_first(
+  amount: 100, description: "Activation fee", method: "paybybank"
+)
+redirect_to payment.checkout_url
+```
+
+A Pay by Bank payment stays `pending` until the funds reach Mollie: seconds for
+an instant SEPA transfer, 2-3 business days for a standard one.
+`on_mollie_first_payment_paid` and `on_mollie_mandate_created` fire only once it
+is `paid`, so don't call `mollie_subscribe` before then.
+
+A Pay by Bank first payment creates a `directdebit` mandate, the same as iDEAL
+and Bancontact. **SEPA Direct Debit must be enabled on your Mollie profile**,
+otherwise Mollie cannot create the mandate.
+
+Mollie can report the mandate as `pending` while it has not yet received the
+IBAN from the first payment. MolliePay stores it as `pending` and re-fetches it
+on later webhooks for that payment; `on_mollie_mandate_created` fires when it
+turns `valid`. Mollie sends no webhook for the mandate itself.
+
 ### Path 2: Direct Mandate Creation
 
 Use `mollie_create_mandate` to create a SEPA DD mandate directly from an IBAN.
@@ -196,4 +226,8 @@ subscriptions using this mandate should be canceled separately.
 - [EPC SEPA DD Mandate Requirements](https://www.europeanpaymentscouncil.eu/what-we-do/epc-payment-schemes/sepa-direct-debit/sdd-mandate)
 - [Mollie Recurring Payments](https://docs.mollie.com/docs/recurring-payments)
 - [Mollie Create Mandate API](https://docs.mollie.com/reference/create-mandate)
+- [Mollie Pay by Bank](https://docs.mollie.com/docs/pay-by-bank)
+- [Mollie OpenAPI specification](https://github.com/mollie/openapi)
+- [Mollie relaunches Pay by Bank (2026-10-02)](https://www.mollie.com/news/mollie-relaunches-pay-by-bank)
+- [Mollie and GoCardless combine](https://www.mollie.com/news/mollie-and-gocardless)
 - [eIDAS Regulation (EU No 910/2014)](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.L_.2014.257.01.0073.01.ENG)
