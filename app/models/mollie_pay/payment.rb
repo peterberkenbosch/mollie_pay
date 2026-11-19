@@ -8,11 +8,6 @@ module MolliePay
     has_many   :refunds,      dependent: :destroy
     has_many   :chargebacks,  dependent: :destroy
 
-    attribute :amount,              :money
-    attribute :amount_refunded,     :money
-    attribute :amount_remaining,    :money
-    attribute :amount_captured,     :money
-    attribute :amount_charged_back, :money
 
     # amount_remaining uses nil-semantics: nil = "never fetched from Mollie",
     # 0 = "fully captured/refunded". Only populated when Mollie includes the field.
@@ -21,6 +16,7 @@ module MolliePay
     validates :status,        inclusion: { in: STATUSES }
     validates :sequence_type, inclusion: { in: SEQUENCE_TYPES }
     validates :amount,        presence: true, numericality: { greater_than: 0 }
+    validate  :amount_within_precision
     validates :currency,      presence: true
 
     scope :paid,      -> { where(status: "paid") }
@@ -60,7 +56,12 @@ module MolliePay
         amount_charged_back: mp.amount_charged_back ? mollie_value_to_decimal(mp.amount_charged_back) : payment.amount_charged_back
       )
 
-      payment.notify_billable(mp) if payment.status != previous_status
+      if payment.status != previous_status
+        payment.notify_billable(mp)
+      elsif payment.paid? && payment.first_payment?
+        Mandate.refresh_pending_from_mollie_payment(payment, mp)
+      end
+
       Chargeback.sync_for_payment(payment) if payment.amount_charged_back != previous_amount_charged_back
       payment
     rescue ActiveRecord::RecordNotUnique
@@ -109,7 +110,7 @@ module MolliePay
 
     # Mollie expects amount as { currency: "EUR", value: "10.00" }
     def mollie_amount
-      { currency: currency, value: format("%.2f", amount) }
+      MolliePay.mollie_amount(amount, currency: currency)
     end
   end
 end

@@ -5,7 +5,7 @@ class CreateMolliePayRefunds < ActiveRecord::Migration[8.1]
         foreign_key: { to_table: :mollie_pay_payments }
       t.string  :mollie_id, null: false, index: { unique: true }
       t.string  :status,    null: false, default: "queued"
-      t.string  :amount,    null: false, default: "0" # BigDecimal money as text (see MolliePay::DecimalMoneyType)
+      t.string  :amount,    null: false, default: "0" # money as text until ChangeMolliePayMoneyToDecimal makes it decimal(15,4)
       t.string  :currency,  null: false, default: "EUR"
       t.datetime :refunded_at
       t.timestamps

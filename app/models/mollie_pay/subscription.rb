@@ -6,11 +6,11 @@ module MolliePay
     belongs_to :customer
     has_many   :payments, dependent: :nullify
 
-    attribute :amount, :money
 
     validates :mollie_id, presence: true, uniqueness: true
     validates :status,    inclusion: { in: STATUSES }
     validates :amount,    presence: true, numericality: { greater_than: 0 }
+    validate  :amount_within_precision
     validates :currency,  presence: true
     validates :interval,  presence: true
     validates :name,      presence: true

@@ -6,4 +6,5 @@ module MolliePay
   class PaymentNotAuthorized < Error; end
   class InvalidSignature     < Error; end
   class InvoiceNotUpdatable  < Error; end
+  class InvalidAmount        < Error; end
 end

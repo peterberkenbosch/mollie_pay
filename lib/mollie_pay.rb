@@ -4,12 +4,41 @@ require "mollie_pay/version"
 require "mollie_pay/errors"
 require "mollie_pay/configuration"
 require "mollie_pay/webhook_signature"
-require "mollie_pay/decimal_money_type"
 require "mollie_pay/engine"
 
 module MolliePay
   PAYMENT_LINE_MONEY_FIELDS = %i[ unitPrice totalAmount vatAmount discountAmount ].freeze
   private_constant :PAYMENT_LINE_MONEY_FIELDS
+
+  # Currencies Mollie expects without decimals ("1000", not "1000.00").
+  ZERO_DECIMAL_CURRENCIES = %w[ ISK JPY ].freeze
+
+  # Money is a decimal(15,4) column and a BigDecimal in Ruby. SQLite keeps a
+  # decimal as a REAL, exact to fifteen significant digits, so amounts stop at
+  # a hundred million: four digits below the edge, which leaves room for sums.
+  MAX_AMOUNT  = BigDecimal("100_000_000")
+  MONEY_SCALE = 4
+
+  # Convert an exact amount to Mollie's wire format { currency:, value: "10.00" }.
+  # This is the one place an amount is rounded: half up, to the currency's
+  # minor unit, in BigDecimal and never through a Float.
+  #
+  #   MolliePay.mollie_amount(BigDecimal("10.125"))            # => { currency: "EUR", value: "10.13" }
+  #   MolliePay.mollie_amount(BigDecimal("1000"), currency: "JPY") # => { currency: "JPY", value: "1000" }
+  #
+  def self.mollie_amount(amount, currency: configuration.currency)
+    decimal = BigDecimal(amount.to_s)
+    raise InvalidAmount, "#{amount} is not an amount Mollie can take" unless amount_within_precision?(decimal)
+
+    places = ZERO_DECIMAL_CURRENCIES.include?(currency) ? 0 : 2
+    whole, fraction = decimal.round(places, BigDecimal::ROUND_HALF_UP).to_s("F").split(".")
+
+    { currency: currency, value: places.zero? ? whole : "#{whole}.#{fraction.ljust(places, "0")}" }
+  end
+
+  def self.amount_within_precision?(decimal)
+    decimal.finite? && decimal.abs <= MAX_AMOUNT && decimal.scale <= MONEY_SCALE
+  end
 
   # List enabled payment methods. Optionally filter by amount and currency.
   # Returns Mollie SDK objects directly (Mollie::List of Mollie::Method).
@@ -21,10 +50,7 @@ module MolliePay
   def self.payment_methods(amount: nil, currency: nil, locale: nil, **options)
     params = options
     if amount
-      params[:amount] = {
-        currency: currency || configuration.currency,
-        value:    format("%.2f", amount)
-      }
+      params[:amount] = mollie_amount(amount, currency: currency || configuration.currency)
     end
     params[:locale] = locale if locale
     Mollie::Method.all(params)
@@ -122,7 +148,7 @@ module MolliePay
   def self.build_payment_line(line)
     built = deep_camelize_keys(line)
     PAYMENT_LINE_MONEY_FIELDS.each do |field|
-      built[field] = mollie_wire_amount(built[field]) if built[field].is_a?(Numeric)
+      built[field] = mollie_amount(built[field]) if built[field].is_a?(Numeric)
     end
     built
   end
@@ -130,15 +156,12 @@ module MolliePay
 
   def self.build_sales_invoice_line(line)
     built = deep_camelize_keys(line)
-    built[:unitPrice] = mollie_wire_amount(built[:unitPrice]) if built[:unitPrice].is_a?(Numeric)
+    if built[:unitPrice].is_a?(Numeric)
+      built[:unitPrice] = mollie_amount(built[:unitPrice])
+    end
     built
   end
   private_class_method :build_sales_invoice_line
-
-  def self.mollie_wire_amount(amount)
-    { currency: configuration.currency, value: format("%.2f", amount) }
-  end
-  private_class_method :mollie_wire_amount
 
   def self.deep_camelize_keys(hash)
     hash.each_with_object({}) do |(key, value), result|
