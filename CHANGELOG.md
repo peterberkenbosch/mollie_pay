@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-19
+
 ### Added
 - Billink (buy now, pay later) support. `mollie_pay_once` accepts `lines:`,
   `billing_address:`, `shipping_address:`, `capture_mode:` and `locale:`; line
@@ -17,6 +19,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - Test helpers `stub_mollie_capture_create`, `stub_mollie_payment_release_authorization`,
   `fake_mollie_capture`, a `fixture:` keyword on `webmock_mollie_payment_get`, and
   the `payment_billink.json` fixture.
+- Pay by Bank (`paybybank`) is documented and tested as a first payment method
+  for `mollie_pay_first`. See `docs/mandates.md`.
 
 ### Changed
 - **Breaking:** `MolliePay::SalesInvoice::STATUS_CANCELED` and
@@ -25,6 +29,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   no longer a valid sales invoice status. `canceled?` keeps its name.
 
 ### Fixed
+- A mandate Mollie reported as `pending` when its first payment was already paid
+  stayed pending locally, so `mollie_subscribe` kept raising `MandateRequired`.
+  It is now re-fetched on later webhooks for that payment, and
+  `on_mollie_mandate_created` fires when it turns `valid`.
 - `MolliePay::SalesInvoice` accepts every status Mollie returns: `issuing`,
   `pending-payment`, `overdue`, `payment-reversed`, `cancelled`, `expired` and
   `failed` raised `ActiveRecord::RecordInvalid`, in `mollie_create_sales_invoice`
