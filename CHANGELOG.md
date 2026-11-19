@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-19
+
 ### Changed
 - **Breaking:** Money columns are `decimal(15,4)` instead of text, following the
   engine-family money rule (ADR 006). Amounts are still `BigDecimal` in Ruby.
