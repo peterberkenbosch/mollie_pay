@@ -1078,6 +1078,20 @@ module MolliePay
       end
     end
 
+    test "mollie_create_sales_invoice persists an invoice Mollie is still issuing" do
+      mollie_response = fake_mollie_sales_invoice_response(id: "invoice_issuing", status: "issuing")
+
+      MolliePay.stub(:create_sales_invoice, mollie_response) do
+        invoice = @org.mollie_create_sales_invoice(
+          status: "issued",
+          lines: [ { description: "Item", quantity: 1, vat_rate: "21.00", unit_price: BigDecimal("10.00") } ]
+        )
+
+        assert invoice.persisted?
+        assert_equal "issuing", invoice.status
+      end
+    end
+
     test "mollie_create_sales_invoice auto-populates consumer recipient" do
       received_recipient = nil
       original_create = MolliePay.method(:create_sales_invoice)

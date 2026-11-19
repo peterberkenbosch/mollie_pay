@@ -2,6 +2,9 @@ require "test_helper"
 
 module MolliePay
   class SalesInvoiceTest < ActiveSupport::TestCase
+    # The sales-invoice-status-response enum in Mollie's OpenAPI spec.
+    MOLLIE_STATUSES = %w[ draft issuing issued pending-payment paid overdue payment-reversed cancelled expired failed ].freeze
+
     test "record_from_mollie creates new record" do
       customer = mollie_pay_customers(:acme)
       mollie_si = fake_mollie_si(
@@ -207,6 +210,27 @@ module MolliePay
       assert_not invoice.valid?
     end
 
+    test "record_from_mollie stores every status Mollie returns" do
+      customer = mollie_pay_customers(:acme)
+
+      MOLLIE_STATUSES.each do |status|
+        invoice = SalesInvoice.record_from_mollie(fake_mollie_si(id: "invoice_#{status.tr("-", "_")}", status: status), customer)
+
+        assert invoice.persisted?, "expected a #{status} invoice to be stored"
+        assert_equal status, invoice.status
+      end
+    end
+
+    test "statuses match Mollie's sales invoice statuses" do
+      assert_equal MOLLIE_STATUSES, SalesInvoice::STATUSES
+    end
+
+    test "rejects the canceled spelling Mollie does not use" do
+      invoice = mollie_pay_sales_invoices(:acme_draft)
+      invoice.status = "canceled"
+      assert_not invoice.valid?
+    end
+
     test "requires positive amount when present" do
       invoice = mollie_pay_sales_invoices(:acme_issued)
       invoice.amount = 0
@@ -233,6 +257,9 @@ module MolliePay
       issued = mollie_pay_sales_invoices(:acme_issued)
       assert issued.issued?
       assert_not issued.draft?
+
+      draft.status = "cancelled"
+      assert draft.canceled?
     end
 
     test "mollie_amount returns formatted hash" do

@@ -3,9 +3,13 @@ module MolliePay
     STATUS_DRAFT    = "draft"
     STATUS_ISSUED   = "issued"
     STATUS_PAID     = "paid"
-    STATUS_CANCELED = "canceled"
+    STATUS_CANCELED = "cancelled" # Mollie's spelling
 
-    STATUSES = [ STATUS_DRAFT, STATUS_ISSUED, STATUS_PAID, STATUS_CANCELED ].freeze
+    # Mollie's statuses, in the order of its API reference.
+    STATUSES = [
+      STATUS_DRAFT, "issuing", STATUS_ISSUED, "pending-payment", STATUS_PAID,
+      "overdue", "payment-reversed", STATUS_CANCELED, "expired", "failed"
+    ].freeze
 
     belongs_to :customer
 

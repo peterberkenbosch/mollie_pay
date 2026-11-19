@@ -3,7 +3,7 @@ module Mollie
     STATUS_DRAFT    = "draft".freeze
     STATUS_ISSUED   = "issued".freeze
     STATUS_PAID     = "paid".freeze
-    STATUS_CANCELED = "canceled".freeze
+    STATUS_CANCELED = "cancelled".freeze # Mollie's spelling
 
     attr_accessor :id,
                   :profile_id,
