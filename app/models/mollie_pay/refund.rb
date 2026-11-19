@@ -4,11 +4,11 @@ module MolliePay
 
     belongs_to :payment
 
-    attribute :amount, :money
 
     validates :mollie_id, presence: true, uniqueness: true
     validates :status,    inclusion: { in: STATUSES }
     validates :amount,    presence: true, numericality: { greater_than: 0 }
+    validate  :amount_within_precision
     validates :currency,  presence: true
 
     scope :refunded,    -> { where(status: "refunded") }
@@ -44,7 +44,7 @@ module MolliePay
     end
 
     def mollie_amount
-      { currency: currency, value: format("%.2f", amount) }
+      MolliePay.mollie_amount(amount, currency: currency)
     end
   end
 end

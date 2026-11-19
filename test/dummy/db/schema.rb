@@ -10,9 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_26_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_15_000001) do
   create_table "mollie_pay_chargebacks", id: :string, force: :cascade do |t|
-    t.string "amount", default: "0", null: false
+    t.decimal "amount", precision: 15, scale: 4, default: "0.0", null: false
     t.datetime "created_at", null: false
     t.datetime "created_at_mollie"
     t.string "currency", default: "EUR", null: false
@@ -49,11 +49,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_26_000002) do
   end
 
   create_table "mollie_pay_payments", id: :string, force: :cascade do |t|
-    t.string "amount", default: "0", null: false
-    t.string "amount_captured", default: "0"
-    t.string "amount_charged_back", default: "0"
-    t.string "amount_refunded", default: "0"
-    t.string "amount_remaining"
+    t.decimal "amount", precision: 15, scale: 4, default: "0.0", null: false
+    t.decimal "amount_captured", precision: 15, scale: 4, default: "0.0"
+    t.decimal "amount_charged_back", precision: 15, scale: 4, default: "0.0"
+    t.decimal "amount_refunded", precision: 15, scale: 4, default: "0.0"
+    t.decimal "amount_remaining", precision: 15, scale: 4
     t.datetime "authorized_at"
     t.datetime "canceled_at"
     t.string "checkout_url"
@@ -75,7 +75,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_26_000002) do
   end
 
   create_table "mollie_pay_refunds", id: :string, force: :cascade do |t|
-    t.string "amount", default: "0", null: false
+    t.decimal "amount", precision: 15, scale: 4, default: "0.0", null: false
     t.datetime "created_at", null: false
     t.string "currency", default: "EUR", null: false
     t.string "mollie_id", null: false
@@ -88,7 +88,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_26_000002) do
   end
 
   create_table "mollie_pay_sales_invoices", id: :string, force: :cascade do |t|
-    t.string "amount"
+    t.decimal "amount", precision: 15, scale: 4
     t.datetime "created_at", null: false
     t.string "currency"
     t.string "customer_id", null: false
@@ -106,7 +106,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_26_000002) do
   end
 
   create_table "mollie_pay_subscriptions", id: :string, force: :cascade do |t|
-    t.string "amount", default: "0", null: false
+    t.decimal "amount", precision: 15, scale: 4, default: "0.0", null: false
     t.datetime "canceled_at"
     t.datetime "created_at", null: false
     t.string "currency", default: "EUR", null: false

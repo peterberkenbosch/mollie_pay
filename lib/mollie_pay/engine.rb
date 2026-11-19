@@ -2,10 +2,6 @@ module MolliePay
   class Engine < ::Rails::Engine
     isolate_namespace MolliePay
 
-    initializer "mollie_pay.types" do
-      ActiveRecord::Type.register(:money, MolliePay::DecimalMoneyType)
-    end
-
     initializer "mollie_pay.configure_mollie_client" do
       ActiveSupport.on_load(:active_record) do
         ::Mollie::Client.configure do |client|

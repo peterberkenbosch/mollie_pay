@@ -8,11 +8,6 @@ module MolliePay
     has_many   :refunds,      dependent: :destroy
     has_many   :chargebacks,  dependent: :destroy
 
-    attribute :amount,              :money
-    attribute :amount_refunded,     :money
-    attribute :amount_remaining,    :money
-    attribute :amount_captured,     :money
-    attribute :amount_charged_back, :money
 
     # amount_remaining uses nil-semantics: nil = "never fetched from Mollie",
     # 0 = "fully captured/refunded". Only populated when Mollie includes the field.
@@ -21,6 +16,7 @@ module MolliePay
     validates :status,        inclusion: { in: STATUSES }
     validates :sequence_type, inclusion: { in: SEQUENCE_TYPES }
     validates :amount,        presence: true, numericality: { greater_than: 0 }
+    validate  :amount_within_precision
     validates :currency,      presence: true
 
     scope :paid,      -> { where(status: "paid") }
@@ -108,7 +104,7 @@ module MolliePay
 
     # Mollie expects amount as { currency: "EUR", value: "10.00" }
     def mollie_amount
-      { currency: currency, value: format("%.2f", amount) }
+      MolliePay.mollie_amount(amount, currency: currency)
     end
   end
 end

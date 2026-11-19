@@ -3,6 +3,36 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+- **Breaking:** Money columns are `decimal(15,4)` instead of text, following the
+  engine-family money rule (ADR 006). Amounts are still `BigDecimal` in Ruby.
+- Amounts must be finite, at most a hundred million (`MolliePay::MAX_AMOUNT`)
+  and at most four decimals. A stored amount beyond that is invalid, and sending
+  one raises `MolliePay::InvalidAmount`. Nothing is rounded to fit.
+
+### Removed
+- **Breaking:** The registered `:money` attribute type and
+  `MolliePay::DecimalMoneyType`. A host that used `attribute :x, :money` on its
+  own column changes that column to `decimal(15,4)` and drops the attribute line.
+
+### Fixed
+- Amounts sent to Mollie are rounded half up in `BigDecimal`. They went through
+  `format("%.2f", ...)`, which converts to a Float and rounds ties to even, so
+  `10.125` was sent as `"10.12"` instead of `"10.13"`. Whole-cent amounts are
+  unaffected.
+- Zero-decimal currencies (`JPY`, `ISK`) are sent without decimals (`"1000"`).
+
+### Added
+- `MolliePay.mollie_amount(amount, currency:)`, the single conversion to Mollie's
+  wire format.
+
+### Migration Required
+- Run `bin/rails mollie_pay:install:migrations db:migrate`. The new migration
+  `ChangeMolliePayMoneyToDecimal` alters every money column in place and SQLite
+  converts the stored text amounts.
+
 ## [0.7.0] - 2026-07-14
 
 ### Changed
