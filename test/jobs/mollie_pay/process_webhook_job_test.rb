@@ -118,6 +118,21 @@ module MolliePay
       assert_equal "refunded", refund.reload.status
     end
 
+    test "processes a canceled refund webhook without raising" do
+      refund = mollie_pay_refunds(:acme_refund)
+      response = OpenStruct.new(
+        id: refund.mollie_id, status: "canceled",
+        payment_id: refund.payment.mollie_id,
+        amount: OpenStruct.new(value: "75.00", currency: "EUR")
+      )
+
+      Mollie::Refund.stub(:get, response) do
+        ProcessWebhookJob.perform_now(refund.mollie_id)
+      end
+
+      assert_equal "canceled", refund.reload.status
+    end
+
     test "processes settlement webhook via ActiveSupport::Notifications" do
       settlement = OpenStruct.new(
         id: "stl_test123", status: "paidout",
