@@ -2,6 +2,8 @@ require "test_helper"
 
 module MolliePay
   class SubscriptionTest < ActiveSupport::TestCase
+    include ActiveJob::TestHelper
+
     test "active? reflects status" do
       assert mollie_pay_subscriptions(:acme_monthly).active?
     end
@@ -75,6 +77,7 @@ module MolliePay
       Subscription.record_from_mollie(mollie_sub)
 
       assert_equal "canceled", existing.reload.status
+      assert_enqueued_with job: NotifyBillableJob, args: [ existing.customer.owner, :on_mollie_subscription_canceled, existing ]
     end
 
     test "name validates presence" do

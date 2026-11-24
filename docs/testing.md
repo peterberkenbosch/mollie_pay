@@ -140,6 +140,15 @@ class OrganizationIntegrationTest < ActiveSupport::TestCase
 end
 ```
 
+Webhook-triggered hooks run in `MolliePay::NotifyBillableJob`, not inside
+`ProcessWebhookJob`. To run your hook in a webhook test, wrap the call in
+`perform_enqueued_jobs { ... }` from `ActiveJob::TestHelper`, or assert the
+job was enqueued:
+
+```ruby
+assert_enqueued_with job: MolliePay::NotifyBillableJob, args: [ org, :on_mollie_payment_paid, payment ]
+```
+
 `webmock_mollie_payment_get` loads `payment.json` by default. Pass
 `fixture: "payment_billink"` for a Billink (manual capture) payment with
 `captureMode`, `captureBefore`, `billingAddress` and `lines`.

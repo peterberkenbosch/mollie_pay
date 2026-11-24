@@ -2,6 +2,8 @@ require "test_helper"
 
 module MolliePay
   class SalesInvoiceTest < ActiveSupport::TestCase
+    include ActiveJob::TestHelper
+
     # The sales-invoice-status-response enum in Mollie's OpenAPI spec.
     MOLLIE_STATUSES = %w[ draft issuing issued pending-payment paid overdue payment-reversed cancelled expired failed ].freeze
 
@@ -59,10 +61,6 @@ module MolliePay
     test "record_from_mollie fires on_mollie_sales_invoice_paid on transition" do
       customer = mollie_pay_customers(:acme)
       existing = mollie_pay_sales_invoices(:acme_issued)
-      hook_called = false
-
-      owner = customer.owner
-      owner.define_singleton_method(:on_mollie_sales_invoice_paid) { |_si| hook_called = true }
 
       mollie_si = fake_mollie_si(
         id: existing.mollie_id,
@@ -79,16 +77,12 @@ module MolliePay
 
       SalesInvoice.record_from_mollie(mollie_si, customer)
 
-      assert hook_called, "on_mollie_sales_invoice_paid should have been called"
+      assert_enqueued_with job: NotifyBillableJob, args: [ customer.owner, :on_mollie_sales_invoice_paid, existing ]
     end
 
     test "record_from_mollie fires on_mollie_sales_invoice_issued on transition" do
       customer = mollie_pay_customers(:acme)
       existing = mollie_pay_sales_invoices(:acme_draft)
-      hook_called = false
-
-      owner = customer.owner
-      owner.define_singleton_method(:on_mollie_sales_invoice_issued) { |_si| hook_called = true }
 
       mollie_si = fake_mollie_si(
         id: existing.mollie_id,
@@ -105,17 +99,12 @@ module MolliePay
 
       SalesInvoice.record_from_mollie(mollie_si, customer)
 
-      assert hook_called, "on_mollie_sales_invoice_issued should have been called"
+      assert_enqueued_with job: NotifyBillableJob, args: [ customer.owner, :on_mollie_sales_invoice_issued, existing ]
     end
 
     test "record_from_mollie does NOT fire hooks when status unchanged" do
       customer = mollie_pay_customers(:acme)
       existing = mollie_pay_sales_invoices(:acme_issued)
-      hook_called = false
-
-      owner = customer.owner
-      owner.define_singleton_method(:on_mollie_sales_invoice_issued) { |_si| hook_called = true }
-      owner.define_singleton_method(:on_mollie_sales_invoice_paid) { |_si| hook_called = true }
 
       mollie_si = fake_mollie_si(
         id: existing.mollie_id,
@@ -132,7 +121,7 @@ module MolliePay
 
       SalesInvoice.record_from_mollie(mollie_si, customer)
 
-      assert_not hook_called, "No hooks should have been called when status unchanged"
+      assert_no_enqueued_jobs only: NotifyBillableJob
     end
 
     test "record_from_mollie handles RecordNotUnique" do

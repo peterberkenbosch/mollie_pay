@@ -51,11 +51,13 @@ module MolliePay
     def notify_billable
       billable = customer.owner
 
-      case status
-      when "canceled"  then billable.on_mollie_subscription_canceled(self)
-      when "suspended" then billable.on_mollie_subscription_suspended(self)
-      when "completed" then billable.on_mollie_subscription_completed(self)
+      hook = case status
+      when "canceled"  then :on_mollie_subscription_canceled
+      when "suspended" then :on_mollie_subscription_suspended
+      when "completed" then :on_mollie_subscription_completed
       end
+
+      NotifyBillableJob.perform_later(billable, hook, self) if hook
     end
 
     def mollie_record

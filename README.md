@@ -242,7 +242,9 @@ idempotency, chargeback detection, Active Job configuration, and rate limiting.
 
 ## Reacting to events
 
-Override hooks in your billable model:
+Override hooks in your billable model. Each hook runs in a background job after
+the change is saved, and that job retries a hook that raises, so a hook can run
+more than once. Make hooks idempotent.
 
 ```ruby
 class Organization < ApplicationRecord

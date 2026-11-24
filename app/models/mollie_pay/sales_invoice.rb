@@ -81,11 +81,11 @@ module MolliePay
       billable = invoice.customer.owner
 
       if invoice.status == STATUS_ISSUED && previous_status != STATUS_ISSUED
-        billable.on_mollie_sales_invoice_issued(invoice)
+        NotifyBillableJob.perform_later(billable, :on_mollie_sales_invoice_issued, invoice)
       end
 
       if invoice.status == STATUS_PAID && previous_status != STATUS_PAID
-        billable.on_mollie_sales_invoice_paid(invoice)
+        NotifyBillableJob.perform_later(billable, :on_mollie_sales_invoice_paid, invoice)
       end
     end
   end

@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+- A hook that raises is now called again. Each `on_mollie_*` hook triggered by
+  a webhook runs in `MolliePay::NotifyBillableJob`, enqueued after the record is
+  saved, and that job retries the hook (polynomial backoff, 5 attempts). Before,
+  the webhook job retried, found the status already saved, and skipped the hook,
+  so a failed `on_mollie_first_payment_paid` left a paid customer without a
+  subscription.
+
+### Changed
+- Webhook-triggered hooks run asynchronously and at least once, in their own
+  job, instead of inside the webhook job. Hooks called from `Billable` methods
+  your app calls directly (`mollie_swap_subscription`, `mollie_mark_invoice_paid`)
+  still run inline. Tests that assert a hook was called after a webhook need to
+  perform enqueued jobs or assert that `MolliePay::NotifyBillableJob` was
+  enqueued.
+
 ## [0.9.0] - 2026-11-19
 
 ### Added

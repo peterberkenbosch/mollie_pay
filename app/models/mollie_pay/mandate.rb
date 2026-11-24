@@ -22,7 +22,7 @@ module MolliePay
         mandated_at: mollie_mandate.status == "valid" && !was_valid ? Time.current : mandate.mandated_at
       )
 
-      customer.owner.on_mollie_mandate_created(mandate) if mandate.valid_status? && !was_valid
+      NotifyBillableJob.perform_later(customer.owner, :on_mollie_mandate_created, mandate) if mandate.valid_status? && !was_valid
       mandate
     end
 
@@ -43,7 +43,7 @@ module MolliePay
         mandated_at: mollie_mandate.status == "valid" && !was_valid ? Time.current : mandate.mandated_at
       )
 
-      customer.owner.on_mollie_mandate_created(mandate) if mandate.valid_status? && !was_valid
+      NotifyBillableJob.perform_later(customer.owner, :on_mollie_mandate_created, mandate) if mandate.valid_status? && !was_valid
       mandate
     end
 

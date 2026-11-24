@@ -28,7 +28,7 @@ module MolliePay
       )
 
       if refund.status == "refunded" && previous_status != "refunded"
-        payment.customer.owner.on_mollie_refund_processed(refund)
+        NotifyBillableJob.perform_later(payment.customer.owner, :on_mollie_refund_processed, refund)
       end
       refund
     rescue ActiveRecord::RecordNotUnique
