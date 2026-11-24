@@ -35,6 +35,7 @@ module MolliePay
 
       mandate = find_or_initialize_by(mollie_id: mollie_mandate.id)
       was_valid = mandate.valid_status?
+      was_pending = mandate.persisted? && mandate.pending?
 
       mandate.update!(
         customer:    customer,
@@ -44,11 +45,13 @@ module MolliePay
       )
 
       customer.owner.on_mollie_mandate_created(mandate) if mandate.valid_status? && !was_valid
+      RefreshPendingMandateJob.perform_later(mandate) if mandate.pending? && !was_pending
       mandate
     end
 
     # Mollie has no mandate webhooks. A mandate that was still pending when its
-    # first payment was paid is re-fetched on later webhooks for that payment.
+    # first payment was paid is re-fetched by RefreshPendingMandateJob, and on
+    # later webhooks for that payment when Mollie sends any.
     def self.refresh_pending_from_mollie_payment(payment, mollie_payment)
       if pending.exists?(customer: payment.customer, mollie_id: mollie_payment.mandate_id)
         record_from_mollie_payment(payment, mollie_payment)
@@ -61,6 +64,10 @@ module MolliePay
 
     def valid_status?
       status == "valid"
+    end
+
+    def pending?
+      status == "pending"
     end
   end
 end

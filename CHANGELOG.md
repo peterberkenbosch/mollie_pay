@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+- A mandate that is still `pending` when its first payment is paid is now
+  re-fetched by `MolliePay::RefreshPendingMandateJob` until Mollie reports it
+  `valid` or `invalid`. Mollie sends no webhook for that change, so with iDEAL
+  the mandate stayed `pending` and `on_mollie_mandate_created` never fired.
+
+### Changed
+- The README, tutorial and `docs/mandates.md` subscribe from
+  `on_mollie_mandate_created` instead of `on_mollie_first_payment_paid`, which
+  can run while the mandate is still pending.
+
 ## [0.9.0] - 2026-11-19
 
 ### Added

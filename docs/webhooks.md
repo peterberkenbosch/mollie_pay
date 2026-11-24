@@ -105,6 +105,7 @@ Webhook jobs are enqueued on the `:default` queue. Processing includes:
 - **Retry policy:** polynomial backoff, up to 5 attempts on Mollie API and database errors
 - **Discard policy:** Mollie 404s and locally unknown subscription/refund IDs are discarded immediately
 - **Idempotency:** `record_from_mollie` uses `find_or_initialize_by` — safe to process the same webhook multiple times
+- **Pending mandates:** when a first payment is paid while its mandate is still `pending`, `RefreshPendingMandateJob` re-fetches the mandate with polynomial backoff, for up to 10 attempts over roughly four hours, until Mollie reports it `valid` or `invalid`
 
 ## Next-Gen Webhooks (beta)
 

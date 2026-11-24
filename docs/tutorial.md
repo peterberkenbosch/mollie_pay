@@ -718,16 +718,24 @@ end
 
 ### Auto-subscribe after first payment
 
-When the first payment completes, Mollie fires a webhook. MolliePay processes it
-and calls `on_mollie_first_payment_paid` on your model. Without this hook, users
-would pay €0.01, get a mandate, and then need to manually navigate back to the
-pricing page and click "Subscribe" — a confusing experience.
+When the first payment completes, Mollie fires a webhook. MolliePay processes it,
+stores the mandate the payment created, and calls `on_mollie_mandate_created` on
+your model once that mandate is valid. Without this hook, users would pay €0.01,
+get a mandate, and then need to manually navigate back to the pricing page and
+click "Subscribe" — a confusing experience.
+
+Subscribe from `on_mollie_mandate_created`, not from
+`on_mollie_first_payment_paid`. With iDEAL, Mollie can report the payment paid
+a few seconds before the mandate is valid. `on_mollie_first_payment_paid` then
+runs while `mollie_mandated?` is still false, and `mollie_subscribe` would raise
+`MolliePay::MandateRequired`. MolliePay keeps re-fetching a pending mandate in
+the background and calls `on_mollie_mandate_created` when it turns valid.
 
 Add the auto-subscribe hook to your `User` model:
 
 ```ruby
 # app/models/user.rb — add this method to the User class
-def on_mollie_first_payment_paid(payment)
+def on_mollie_mandate_created(mandate)
   return if mollie_subscribed?   # idempotency guard — prevents duplicate subscriptions on webhook retry
   return unless plan.present?
 
@@ -1099,12 +1107,12 @@ end
 
 ### Handling the webhook callback
 
-Update `on_mollie_first_payment_paid` to detect full-amount first payments and
+Update `on_mollie_mandate_created` to detect full-amount first payments and
 pass `start_date:` to avoid double-charging:
 
 ```ruby
 # app/models/user.rb
-def on_mollie_first_payment_paid(payment)
+def on_mollie_mandate_created(mandate)
   return if mollie_subscribed?
   return unless plan.present?
 
@@ -1113,7 +1121,8 @@ def on_mollie_first_payment_paid(payment)
 
   # If first payment covered the full amount (credit card flow),
   # start subscription at next period to avoid double-charging
-  start_date = if payment.amount >= plan_details[:amount]
+  first_payment = mollie_payments.first_payments.paid.order(:paid_at).last
+  start_date = if first_payment && first_payment.amount >= plan_details[:amount]
     Date.today + plan_details[:interval_duration]
   end
 
@@ -1204,7 +1213,7 @@ a guard, a retry after partial success creates a duplicate Mollie subscription �
 meaning the customer gets charged twice on a recurring basis.
 
 ```ruby
-def on_mollie_first_payment_paid(payment)
+def on_mollie_mandate_created(mandate)
   return if mollie_subscribed?   # essential — prevents duplicate subscriptions
   # ... rest of subscription creation
 end
