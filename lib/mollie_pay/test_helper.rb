@@ -143,7 +143,7 @@ module MolliePay
       Mollie::Customer::Mandate.stub(:delete, nil, &block)
     end
 
-    # Stub Mollie::Refund.create.
+    # Stub Mollie::Payment::Refund.create.
     #
     #   stub_mollie_refund_create do
     #     refund = @user.mollie_refund(payment)
