@@ -87,48 +87,32 @@ module MolliePay
       assert_not_nil payment.expired_at
     end
 
-    test "processes subscription webhook" do
+    test "processes subscription webhook through the customer subscriptions endpoint" do
       subscription = mollie_pay_subscriptions(:acme_monthly)
-      response = OpenStruct.new(
-        id: subscription.mollie_id, status: "canceled",
-        customer_id: subscription.customer.mollie_id,
-        amount: OpenStruct.new(value: "25.00", currency: "EUR"),
-        interval: "1 month", metadata: nil
-      )
+      customer_id = subscription.customer.mollie_id
+      stub_request(:get, "#{MOLLIE_API_BASE}/customers/#{customer_id}/subscriptions/#{subscription.mollie_id}")
+        .to_return(status: 200, body: mollie_fixture("subscription", id: subscription.mollie_id, customer_id: customer_id, status: "canceled"),
+                   headers: { "Content-Type" => "application/hal+json" })
 
-      Mollie::Subscription.stub(:get, response) do
-        ProcessWebhookJob.perform_now(subscription.mollie_id)
-      end
+      ProcessWebhookJob.perform_now(subscription.mollie_id)
 
       assert_equal "canceled", subscription.reload.status
     end
 
-    test "processes refund webhook" do
+    test "processes refund webhook through the payment refunds endpoint" do
       refund = mollie_pay_refunds(:acme_refund)
-      response = OpenStruct.new(
-        id: refund.mollie_id, status: "refunded",
-        payment_id: refund.payment.mollie_id,
-        amount: OpenStruct.new(value: "75.00", currency: "EUR")
-      )
+      stub_mollie_refund_get(refund, status: "refunded")
 
-      Mollie::Refund.stub(:get, response) do
-        ProcessWebhookJob.perform_now(refund.mollie_id)
-      end
+      ProcessWebhookJob.perform_now(refund.mollie_id)
 
       assert_equal "refunded", refund.reload.status
     end
 
     test "processes a canceled refund webhook without raising" do
       refund = mollie_pay_refunds(:acme_refund)
-      response = OpenStruct.new(
-        id: refund.mollie_id, status: "canceled",
-        payment_id: refund.payment.mollie_id,
-        amount: OpenStruct.new(value: "75.00", currency: "EUR")
-      )
+      stub_mollie_refund_get(refund, status: "canceled")
 
-      Mollie::Refund.stub(:get, response) do
-        ProcessWebhookJob.perform_now(refund.mollie_id)
-      end
+      ProcessWebhookJob.perform_now(refund.mollie_id)
 
       assert_equal "canceled", refund.reload.status
     end
@@ -261,6 +245,13 @@ module MolliePay
     end
 
     private
+
+      def stub_mollie_refund_get(refund, status:)
+        payment_id = refund.payment.mollie_id
+        stub_request(:get, "#{MOLLIE_API_BASE}/payments/#{payment_id}/refunds/#{refund.mollie_id}")
+          .to_return(status: 200, body: mollie_fixture("refund", id: refund.mollie_id, payment_id: payment_id, status: status, amount_value: "75.00"),
+                     headers: { "Content-Type" => "application/hal+json" })
+      end
 
       def deliver_billink_webhook(payment, status:)
         webmock_mollie_payment_get(payment.mollie_id, fixture: "payment_billink", status: status, customer_id: payment.customer.mollie_id) do

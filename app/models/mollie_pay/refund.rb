@@ -36,7 +36,7 @@ module MolliePay
     end
 
     def mollie_record
-      Mollie::Refund.get(mollie_id, payment_id: payment.mollie_id)
+      Mollie::Payment::Refund.get(mollie_id, payment_id: payment.mollie_id)
     end
 
     def refunded?

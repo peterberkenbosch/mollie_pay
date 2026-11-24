@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+- Subscriptions and refunds are fetched and created through the endpoints Mollie
+  has for them. `Subscription#mollie_record` and `sub_` webhooks used
+  `GET /v2/subscriptions/:id`, and `Refund#mollie_record`, `re_` webhooks and
+  `mollie_refund` used `/v2/refunds`. Mollie has none of these, so the reads
+  answered 404 (and the webhook job discarded the update) and refunds could not
+  be created. They now use `/v2/customers/:id/subscriptions/:id` and
+  `/v2/payments/:id/refunds`.
+- The `webmock_mollie_refund_create` helper stubs
+  `POST /v2/payments/:payment_id/refunds` and takes an optional `payment_id:`.
+  `stub_mollie_refund_create` stubs `Mollie::Payment::Refund.create`.
+
 ## [0.9.0] - 2026-11-19
 
 ### Added

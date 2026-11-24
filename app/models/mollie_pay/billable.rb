@@ -219,9 +219,9 @@ module MolliePay
     def mollie_refund(payment, amount: nil)
       verify_payment_ownership!(payment)
       refund_amount = amount || payment.amount
-      mr = Mollie::Refund.create(
-        paymentId:      payment.mollie_id,
-        amount:         mollie_amount(refund_amount),
+      mr = Mollie::Payment::Refund.create(
+        payment_id:      payment.mollie_id,
+        amount:          mollie_amount(refund_amount),
         idempotency_key: SecureRandom.uuid
       )
       Refund.create!(

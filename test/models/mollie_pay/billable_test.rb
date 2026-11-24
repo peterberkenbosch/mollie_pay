@@ -812,7 +812,7 @@ module MolliePay
       response = fake_mollie_refund(id: "re_idem")
       fake_create = ->(**args) { received_args = args; response }
 
-      Mollie::Refund.stub(:create, fake_create) do
+      Mollie::Payment::Refund.stub(:create, fake_create) do
         @org.mollie_refund(mollie_pay_payments(:acme_oneoff))
       end
 

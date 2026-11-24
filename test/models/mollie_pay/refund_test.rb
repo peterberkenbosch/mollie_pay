@@ -131,6 +131,16 @@ module MolliePay
       assert_equal original_refunded_at, existing.reload.refunded_at
     end
 
+    test "mollie_record fetches the refund through its payment" do
+      refund = mollie_pay_refunds(:acme_refund)
+      payment_id = refund.payment.mollie_id
+      stub_request(:get, "#{MOLLIE_API_BASE}/payments/#{payment_id}/refunds/#{refund.mollie_id}")
+        .to_return(status: 200, body: mollie_fixture("refund", id: refund.mollie_id, payment_id: payment_id),
+                   headers: { "Content-Type" => "application/hal+json" })
+
+      assert_equal refund.mollie_id, refund.mollie_record.id
+    end
+
     private
 
       def stub_mollie_refund(id:, status:, payment_id:, amount_value:, amount_currency:)

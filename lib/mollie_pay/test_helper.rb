@@ -152,7 +152,7 @@ module MolliePay
     #
     def stub_mollie_refund_create(**overrides, &block)
       response = fake_mollie_refund(**overrides)
-      Mollie::Refund.stub(:create, response, &block)
+      Mollie::Payment::Refund.stub(:create, response, &block)
     end
 
     # Stub Mollie::Payment.get (returning an authorized payment) and
@@ -427,17 +427,21 @@ module MolliePay
       WebMock.reset!
     end
 
-    # Stub POST /v2/refunds.
-    # The Mollie SDK sends paymentId in the request body, not the URL.
+    # Stub POST /v2/payments/:payment_id/refunds.
     #
-    #   webmock_mollie_refund_create do
+    #   webmock_mollie_refund_create(payment_id: "tr_abc") do
     #     refund = @user.mollie_refund(payment)
     #     assert_equal "queued", refund.status
     #   end
     #
-    def webmock_mollie_refund_create(**overrides)
+    def webmock_mollie_refund_create(payment_id: nil, **overrides)
       body = mollie_fixture("refund", **overrides)
-      stub_request(:post, "#{MOLLIE_API_BASE}/refunds")
+      url_pattern = if payment_id
+        "#{MOLLIE_API_BASE}/payments/#{payment_id}/refunds"
+      else
+        %r{#{MOLLIE_API_BASE}/payments/tr_\w+/refunds}
+      end
+      stub_request(:post, url_pattern)
         .to_return(status: 201, body: body, headers: { "Content-Type" => "application/hal+json" })
       yield
     ensure
