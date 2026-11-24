@@ -8,8 +8,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - A mandate that is still `pending` when its first payment is paid is now
   re-fetched by `MolliePay::RefreshPendingMandateJob` until Mollie reports it
-  `valid` or `invalid`. Mollie sends no webhook for that change, so with iDEAL
-  the mandate stayed `pending` and `on_mollie_mandate_created` never fired.
+  `valid` or `invalid`, for 10 attempts over roughly four hours. Mollie sends no
+  webhook for that change, so with iDEAL the mandate stayed `pending` and
+  `on_mollie_mandate_created` never fired. Mandates already stuck `pending`
+  before this release are not picked up on their own; enqueue them once with
+  `MolliePay::Mandate.pending.find_each { |m| MolliePay::RefreshPendingMandateJob.perform_later(m) }`.
+- `on_mollie_mandate_created` fires once per mandate when two jobs see it turn
+  `valid` at the same time, and a late `pending` answer from Mollie no longer
+  replaces a stored `valid`. `mandated_at` is set once.
 
 ### Changed
 - The README, tutorial and `docs/mandates.md` subscribe from

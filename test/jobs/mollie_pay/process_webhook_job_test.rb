@@ -258,7 +258,9 @@ module MolliePay
 
       assert_not_nil Mandate.find_by!(mollie_id: "mdt_pbblate").mandated_at
       assert_equal [ [ :first_payment_paid, "tr_pbblate" ], [ :mandate_created, "mdt_pbblate" ] ], hooks
-      assert_enqueued_jobs 1, only: RefreshPendingMandateJob
+      # Each delivery that still finds the mandate pending enqueues a refresh,
+      # so a lost enqueue is recovered by the next delivery or webhook retry.
+      assert_enqueued_jobs 2, only: RefreshPendingMandateJob
     ensure
       restore_billable_hooks
     end
@@ -291,6 +293,29 @@ module MolliePay
     ensure
       WebMock.reset!
       restore_billable_hooks
+    end
+
+    test "a webhook retry enqueues the mandate refresh when the first enqueue failed" do
+      payment = create_paybybank_first_payment("tr_idealqueue")
+      customer = payment.customer
+
+      2.times do |delivery|
+        webmock_mollie_payment_get(payment.mollie_id, **paybybank_payment(payment, method: "ideal", status: "paid", mandate_id: "mdt_idealqueue")) do
+          stub_request(:get, "#{MOLLIE_API_BASE}/customers/#{customer.mollie_id}/mandates/mdt_idealqueue")
+            .to_return(status: 200, body: directdebit_mandate_json("mdt_idealqueue", customer, status: "pending"), headers: { "Content-Type" => "application/hal+json" })
+
+          if delivery.zero?
+            RefreshPendingMandateJob.stub(:perform_later, ->(*) { raise "queue unavailable" }) do
+              ProcessWebhookJob.perform_now(payment.mollie_id)
+            end
+          else
+            ProcessWebhookJob.perform_now(payment.mollie_id)
+          end
+        end
+      end
+
+      assert_equal "pending", Mandate.find_by!(mollie_id: "mdt_idealqueue").status
+      assert_enqueued_jobs 1, only: RefreshPendingMandateJob
     end
 
     private

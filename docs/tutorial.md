@@ -1206,10 +1206,11 @@ All scopes can be chained on the through associations:
 
 Before going live, implement these patterns to handle real-world edge cases.
 
-### Idempotency guard on first payment callback
+### Idempotency guard on the mandate callback
 
-The `ProcessWebhookJob` retries up to 5 times with polynomial backoff. Without
-a guard, a retry after partial success creates a duplicate Mollie subscription —
+`on_mollie_mandate_created` runs from `ProcessWebhookJob` or from
+`RefreshPendingMandateJob`, and both retry with polynomial backoff. Without a
+guard, a retry after partial success creates a duplicate Mollie subscription —
 meaning the customer gets charged twice on a recurring basis.
 
 ```ruby
