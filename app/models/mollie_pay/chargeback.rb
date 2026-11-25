@@ -40,8 +40,8 @@ module MolliePay
 
       events.each do |type, chargeback|
         case type
-        when :received then billable.on_mollie_chargeback_received(chargeback)
-        when :reversed then billable.on_mollie_chargeback_reversed(chargeback)
+        when :received then NotifyBillableJob.perform_later(billable, :on_mollie_chargeback_received, chargeback)
+        when :reversed then NotifyBillableJob.perform_later(billable, :on_mollie_chargeback_reversed, chargeback)
         end
       end
     end

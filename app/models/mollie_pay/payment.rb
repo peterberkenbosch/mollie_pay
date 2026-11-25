@@ -71,21 +71,23 @@ module MolliePay
     def notify_billable(mollie_payment = nil)
       billable = customer.owner
 
-      case status
+      hook = case status
       when "paid"
         if first_payment?
           Mandate.record_from_mollie_payment(self, mollie_payment)
-          billable.on_mollie_first_payment_paid(self)
+          :on_mollie_first_payment_paid
         elsif recurring?
-          billable.on_mollie_subscription_charged(self)
+          :on_mollie_subscription_charged
         else
-          billable.on_mollie_payment_paid(self)
+          :on_mollie_payment_paid
         end
-      when "authorized" then billable.on_mollie_payment_authorized(self)
-      when "failed"     then billable.on_mollie_payment_failed(self)
-      when "canceled"   then billable.on_mollie_payment_canceled(self)
-      when "expired"    then billable.on_mollie_payment_expired(self)
+      when "authorized" then :on_mollie_payment_authorized
+      when "failed"     then :on_mollie_payment_failed
+      when "canceled"   then :on_mollie_payment_canceled
+      when "expired"    then :on_mollie_payment_expired
       end
+
+      NotifyBillableJob.perform_later(billable, hook, self) if hook
     end
 
     def mollie_record

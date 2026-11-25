@@ -27,7 +27,7 @@ module MolliePay
         became_valid = mandate.record_status(mollie_mandate.status)
       end
 
-      customer.owner.on_mollie_mandate_created(mandate) if became_valid
+      NotifyBillableJob.perform_later(customer.owner, :on_mollie_mandate_created, mandate) if became_valid
       mandate
     end
 

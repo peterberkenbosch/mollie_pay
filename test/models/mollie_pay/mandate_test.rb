@@ -2,6 +2,8 @@ require "test_helper"
 
 module MolliePay
   class MandateTest < ActiveSupport::TestCase
+    include ActiveJob::TestHelper
+
     test "valid_status? reflects status" do
       assert mollie_pay_mandates(:acme_mandate).valid_status?
     end
@@ -65,9 +67,11 @@ module MolliePay
       created = []
       Organization.define_method(:on_mollie_mandate_created) { |mandate| created << mandate.mollie_id }
 
-      Mandate.record_from_mollie_mandate(valid, customer)
-      Mandate.stub(:find_or_initialize_by, stale) do
+      perform_enqueued_jobs(only: NotifyBillableJob) do
         Mandate.record_from_mollie_mandate(valid, customer)
+        Mandate.stub(:find_or_initialize_by, stale) do
+          Mandate.record_from_mollie_mandate(valid, customer)
+        end
       end
 
       assert_equal [ "mdt_race" ], created
@@ -114,10 +118,6 @@ module MolliePay
 
     test "record_from_mollie_payment calls mandate_created hook" do
       payment = mollie_pay_payments(:acme_first)
-      hook_called = false
-      owner = payment.customer.owner
-
-      owner.define_singleton_method(:on_mollie_mandate_created) { |_m| hook_called = true }
 
       mollie_payment = OpenStruct.new(mandate_id: "mdt_hook789")
       mollie_mandate = OpenStruct.new(
@@ -132,7 +132,8 @@ module MolliePay
         end
       end
 
-      assert hook_called
+      mandate = Mandate.find_by!(mollie_id: "mdt_hook789")
+      assert_enqueued_with job: NotifyBillableJob, args: [ payment.customer.owner, :on_mollie_mandate_created, mandate ]
     end
 
     test "record_from_mollie_payment returns nil without mandate_id" do

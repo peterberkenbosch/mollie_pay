@@ -20,7 +20,7 @@ ProcessWebhookJob:
   → route by ID prefix (tr_ → Payment, sub_ → Subscription, re_ → Refund, stl_ → Settlement)
   → fetch full object from Mollie API
   → upsert local record via record_from_mollie
-  → fire on_mollie_* hook on billable (only on actual state changes)
+  → enqueue NotifyBillableJob for the on_mollie_* hook (only on actual state changes)
   → detect chargebacks via amount_charged_back comparison (see below)
 ```
 
@@ -37,7 +37,7 @@ Manual-capture methods such as Billink move a payment to `authorized` before
 `authorized` webhook sets `authorized_at` and fires `on_mollie_payment_authorized`.
 After `mollie_capture`, the next webhook moves the payment to `paid`; after
 `mollie_release_authorization`, to `canceled` (or to `paid` when a capture had
-already succeeded); and after 28 days without a capture, to `expired`. Each transition fires its hook once. Capture-level events
+already succeeded); and after 28 days without a capture, to `expired`. Each transition enqueues its hook (see Idempotency: hooks run at least once). Capture-level events
 (`capture.succeeded`, `capture.failed`) exist only as next-gen webhook events and
 are logged, not processed.
 
@@ -68,8 +68,8 @@ Payment webhook arrives (tr_xxx)
         → Chargeback.sync_for_payment(payment)
           → fetches chargebacks from Mollie API
           → upserts each chargeback (find_or_initialize_by mollie_id)
-          → fires on_mollie_chargeback_received for new chargebacks
-          → fires on_mollie_chargeback_reversed when reversed_at is set
+          → enqueues on_mollie_chargeback_received for new chargebacks
+          → enqueues on_mollie_chargeback_reversed when reversed_at is set
 ```
 
 Hooks are dispatched **after** all chargeback records are persisted, preventing
@@ -82,10 +82,15 @@ transitions. For chargebacks, it means new records (`new_record?` before save)
 or newly reversed chargebacks (`reversed_at` changing from nil to a value).
 
 If Mollie sends the same webhook multiple times (which it does routinely), the
-local record is updated but hooks are not re-triggered. As a best practice,
-implement your `on_mollie_*` callbacks **idempotently** — they are safe for
-side effects (send emails, provision access, update billing state) but should
-handle the rare case of being called more than once for the same transition.
+local record is updated but hooks are not re-triggered.
+
+Each hook runs in its own `MolliePay::NotifyBillableJob`, enqueued after the
+record is saved. When your hook raises, for example because `mollie_subscribe`
+hits a Mollie error, that job retries the hook with polynomial backoff, up to
+5 attempts. Hooks are therefore at least once: implement your `on_mollie_*`
+callbacks **idempotently**. They are safe for side effects (send emails,
+provision access, update billing state) but must handle being called more than
+once for the same transition.
 
 Transition timestamps (`paid_at`, `canceled_at`, `failed_at`, `expired_at`,
 `refunded_at`, `mandated_at`) are set once when the transition is first
@@ -105,6 +110,7 @@ Webhook jobs are enqueued on the `:default` queue. Processing includes:
 - **Retry policy:** polynomial backoff, up to 5 attempts on Mollie API and database errors
 - **Discard policy:** Mollie 404s and locally unknown subscription/refund IDs are discarded immediately
 - **Idempotency:** `record_from_mollie` uses `find_or_initialize_by` — safe to process the same webhook multiple times
+- **Hooks:** each `on_mollie_*` hook runs in `NotifyBillableJob` on the `:default` queue, with its own retries (polynomial backoff, up to 5 attempts)
 - **Pending mandates:** when a first payment is paid while its mandate is still `pending`, `RefreshPendingMandateJob` re-fetches the mandate with polynomial backoff, for up to 10 attempts over roughly four hours, until Mollie reports it `valid` or `invalid`
 
 ## Next-Gen Webhooks (beta)

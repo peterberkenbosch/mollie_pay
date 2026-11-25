@@ -2,6 +2,8 @@ require "test_helper"
 
 module MolliePay
   class ChargebackTest < ActiveSupport::TestCase
+    include ActiveJob::TestHelper
+
     test "reversed? reflects reversed_at" do
       chargeback = mollie_pay_chargebacks(:acme_chargeback)
       assert_not chargeback.reversed?
@@ -80,15 +82,13 @@ module MolliePay
       ]
 
       mollie_payment_record = OpenStruct.new(chargebacks: mollie_chargebacks)
-      hook_called = false
-      owner = payment.customer.owner
-      owner.define_singleton_method(:on_mollie_chargeback_received) { |_cb| hook_called = true }
 
       payment.stub(:mollie_record, mollie_payment_record) do
         Chargeback.sync_for_payment(payment)
       end
 
-      assert hook_called, "on_mollie_chargeback_received should have been called"
+      chargeback = Chargeback.find_by!(mollie_id: "chb_hook123")
+      assert_enqueued_with job: NotifyBillableJob, args: [ payment.customer.owner, :on_mollie_chargeback_received, chargeback ]
     end
 
     test "sync_for_payment does not fire hook for already processed chargebacks" do
@@ -98,16 +98,13 @@ module MolliePay
       ]
 
       mollie_payment_record = OpenStruct.new(chargebacks: mollie_chargebacks)
-      hook_count = 0
-      owner = payment.customer.owner
-      owner.define_singleton_method(:on_mollie_chargeback_received) { |_cb| hook_count += 1 }
 
       payment.stub(:mollie_record, mollie_payment_record) do
         Chargeback.sync_for_payment(payment)
         Chargeback.sync_for_payment(payment)
       end
 
-      assert_equal 1, hook_count, "Hook should fire only once for the same chargeback"
+      assert_enqueued_jobs 1, only: NotifyBillableJob
     end
 
     test "sync_for_payment fires on_mollie_chargeback_reversed when reversed_at is set" do
@@ -129,17 +126,14 @@ module MolliePay
         stub_mollie_chargeback(id: "chb_rev123", amount_value: "10.00", amount_currency: "EUR", reversed_at: reversed_time)
       ]
 
-      reversed_hook_called = false
-      owner = payment.customer.owner
-      owner.define_singleton_method(:on_mollie_chargeback_reversed) { |_cb| reversed_hook_called = true }
-
       mollie_payment_record_reversed = OpenStruct.new(chargebacks: mollie_chargebacks_reversed)
       payment.stub(:mollie_record, mollie_payment_record_reversed) do
         Chargeback.sync_for_payment(payment)
       end
 
-      assert reversed_hook_called, "on_mollie_chargeback_reversed should have been called"
-      assert Chargeback.find_by(mollie_id: "chb_rev123").reversed?
+      chargeback = Chargeback.find_by!(mollie_id: "chb_rev123")
+      assert chargeback.reversed?
+      assert_enqueued_with job: NotifyBillableJob, args: [ payment.customer.owner, :on_mollie_chargeback_reversed, chargeback ]
     end
 
     test "sync_for_payment handles multiple chargebacks" do
@@ -171,10 +165,6 @@ module MolliePay
       customer = mollie_pay_customers(:acme)
       payment = mollie_pay_payments(:acme_oneoff)
 
-      hook_called_with = nil
-      owner = payment.customer.owner
-      owner.define_singleton_method(:on_mollie_chargeback_received) { |cb| hook_called_with = cb }
-
       webmock_mollie_payment_get_with_chargebacks(payment.mollie_id, customer_id: customer.mollie_id) do
         # Simulate what happens when Payment.record_from_mollie detects a chargeback
         mollie_payment = Mollie::Payment.get(payment.mollie_id)
@@ -188,8 +178,7 @@ module MolliePay
       assert_equal payment, chargeback.payment
       assert_not_nil chargeback.created_at_mollie
       assert_equal "Insufficient funds (AM04)", chargeback.reason
-      assert_not_nil hook_called_with
-      assert_equal chargeback, hook_called_with
+      assert_enqueued_with job: NotifyBillableJob, args: [ payment.customer.owner, :on_mollie_chargeback_received, chargeback ]
     end
 
     test "mollie_amount returns correct hash" do

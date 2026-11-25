@@ -1208,10 +1208,10 @@ Before going live, implement these patterns to handle real-world edge cases.
 
 ### Idempotency guard on the mandate callback
 
-`on_mollie_mandate_created` runs from `ProcessWebhookJob` or from
-`RefreshPendingMandateJob`, and both retry with polynomial backoff. Without a
-guard, a retry after partial success creates a duplicate Mollie subscription —
-meaning the customer gets charged twice on a recurring basis.
+MolliePay runs each hook in its own job (`NotifyBillableJob`), which retries the
+hook up to 5 times with polynomial backoff when it raises. Without a guard, a
+retry after partial success creates a duplicate Mollie subscription — meaning
+the customer gets charged twice on a recurring basis.
 
 ```ruby
 def on_mollie_mandate_created(mandate)
@@ -1238,11 +1238,14 @@ head :ok
 # Job — fetch and delegate by ID prefix
 Payment.record_from_mollie(Mollie::Payment.get(mollie_id))
 
-# Model — idempotent upsert, hooks fire only on status transitions
+# Model — idempotent upsert, hooks enqueued only on status transitions
 payment = find_or_initialize_by(mollie_id: mp.id)
 previous_status = payment.status
 payment.update!(...)
 payment.notify_billable if payment.status != previous_status
+
+# NotifyBillableJob — calls the hook, retries it when it raises
+billable.public_send(hook, record)
 ```
 
 This follows the 37signals principle: domain models own their state, ActiveJob

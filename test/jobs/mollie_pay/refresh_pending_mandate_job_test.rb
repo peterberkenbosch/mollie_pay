@@ -18,7 +18,7 @@ module MolliePay
       stub_mandate_get(status: "valid")
 
       assert_no_enqueued_jobs(only: RefreshPendingMandateJob) do
-        RefreshPendingMandateJob.perform_now(@mandate)
+        perform_enqueued_jobs(only: NotifyBillableJob) { RefreshPendingMandateJob.perform_now(@mandate) }
       end
 
       @mandate.reload

@@ -207,7 +207,7 @@ module MolliePay
           stub_request(:get, "#{MOLLIE_API_BASE}/customers/#{customer.mollie_id}/mandates/mdt_pbb123")
             .to_return(status: 200, body: directdebit_mandate_json("mdt_pbb123", customer), headers: { "Content-Type" => "application/hal+json" })
 
-          ProcessWebhookJob.perform_now(payment.mollie_id)
+          perform_enqueued_jobs { ProcessWebhookJob.perform_now(payment.mollie_id) }
         end
       end
 
@@ -234,7 +234,7 @@ module MolliePay
           stub_request(:get, "#{MOLLIE_API_BASE}/customers/#{customer.mollie_id}/mandates/mdt_pbblate")
             .to_return(status: 200, body: directdebit_mandate_json("mdt_pbblate", customer, status: mandate_status), headers: { "Content-Type" => "application/hal+json" })
 
-          ProcessWebhookJob.perform_now(payment.mollie_id)
+          perform_enqueued_jobs(only: NotifyBillableJob) { ProcessWebhookJob.perform_now(payment.mollie_id) }
         end
 
         assert_equal mandate_status, Mandate.find_by!(mollie_id: "mdt_pbblate").status
@@ -247,6 +247,24 @@ module MolliePay
       assert_enqueued_jobs 2, only: RefreshPendingMandateJob
     ensure
       restore_billable_hooks
+    end
+
+    test "a hook that raised is called again when it is retried" do
+      payment = mollie_pay_payments(:acme_oneoff)
+      calls = 0
+      Organization.define_method(:on_mollie_payment_paid) do |_payment|
+        calls += 1
+        raise "Mollie unavailable" if calls == 1
+      end
+
+      webmock_mollie_payment_get(payment.mollie_id, status: "paid", customer_id: payment.customer.mollie_id) do
+        perform_enqueued_jobs { ProcessWebhookJob.perform_now(payment.mollie_id) }
+      end
+
+      assert_equal "paid", payment.reload.status
+      assert_equal 2, calls
+    ensure
+      Organization.remove_method(:on_mollie_payment_paid)
     end
 
     # iDEAL can report the first payment paid while the mandate is still
@@ -269,6 +287,8 @@ module MolliePay
       stub_request(:get, mandate_url)
         .to_return(status: 200, body: directdebit_mandate_json("mdt_idealpending", customer, status: "valid"), headers: { "Content-Type" => "application/hal+json" })
       perform_enqueued_jobs
+      # The refresh enqueued the created hook during that flush.
+      perform_enqueued_jobs only: NotifyBillableJob
 
       mandate = Mandate.find_by!(mollie_id: "mdt_idealpending")
       assert_equal "valid", mandate.status
@@ -313,7 +333,7 @@ module MolliePay
 
       def deliver_billink_webhook(payment, status:)
         webmock_mollie_payment_get(payment.mollie_id, fixture: "payment_billink", status: status, customer_id: payment.customer.mollie_id) do
-          ProcessWebhookJob.perform_now(payment.mollie_id)
+          perform_enqueued_jobs { ProcessWebhookJob.perform_now(payment.mollie_id) }
         end
       end
 

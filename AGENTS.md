@@ -78,7 +78,7 @@ ProcessWebhookJob#perform(mollie_id)
   → routes by ID prefix (tr_ → Payment, sub_ → Subscription, re_ → Refund)
   → fetches current state from Mollie API
   → upserts local record via Model.record_from_mollie
-  → fires on_mollie_* hook ONLY if status actually changed
+  → enqueues NotifyBillableJob for the on_mollie_* hook ONLY if status actually changed
   → on failure: ActiveJob retries with polynomial backoff (5 attempts)
   → discards Mollie::ResourceNotFoundError (404) and RecordNotFound — no retry
 ```
@@ -97,7 +97,10 @@ in a certain state, check the domain model's status and transition timestamps.
 
 **Idempotency:** `record_from_mollie` uses `find_or_initialize_by(mollie_id:)` +
 `previous_status` check. Hooks fire only on actual status transitions. Transition
-timestamps are set once, never overwritten. Host app hooks should be idempotent.
+timestamps are set once, never overwritten. Each hook runs in its own
+`NotifyBillableJob`, enqueued after the record is saved, so a hook that raises is
+retried by that job. The webhook job's retry would find no transition left and
+skip it. Hooks are therefore at-least-once; host app hooks must be idempotent.
 
 **Concurrent INSERT race:** `Payment.record_from_mollie` and
 `Refund.record_from_mollie` rescue `ActiveRecord::RecordNotUnique` and fall back

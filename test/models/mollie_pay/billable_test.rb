@@ -2,6 +2,8 @@ require "test_helper"
 
 module MolliePay
   class BillableTest < ActiveSupport::TestCase
+    include ActiveJob::TestHelper
+
     EXISTING_PAYMENT_CREATE_KEYS = %i[ amount description redirectUrl webhookUrl customerId sequenceType method metadata idempotency_key ].sort.freeze
 
     setup do
@@ -474,9 +476,6 @@ module MolliePay
     end
 
     test "mollie_create_mandate fires on_mollie_mandate_created for valid mandates" do
-      hook_called = false
-      @org.define_singleton_method(:on_mollie_mandate_created) { |_m| hook_called = true }
-
       stub_mollie_mandate_create(id: "mdt_hook123", status: "valid") do
         @org.mollie_create_mandate(
           method: "directdebit",
@@ -485,7 +484,8 @@ module MolliePay
         )
       end
 
-      assert hook_called, "on_mollie_mandate_created should have been called"
+      mandate = Mandate.find_by!(mollie_id: "mdt_hook123")
+      assert_enqueued_with job: NotifyBillableJob, args: [ @org, :on_mollie_mandate_created, mandate ]
     end
 
     test "mollie_create_mandate sends idempotency key" do
@@ -1144,10 +1144,6 @@ module MolliePay
     end
 
     test "mollie_create_sales_invoice fires on_mollie_sales_invoice_issued for issued status" do
-      hook_called = false
-      hook_invoice = nil
-      @org.define_singleton_method(:on_mollie_sales_invoice_issued) { |inv| hook_called = true; hook_invoice = inv }
-
       mollie_response = fake_mollie_sales_invoice_response(id: "invoice_issued_hook", status: "issued")
       MolliePay.stub(:create_sales_invoice, mollie_response) do
         @org.mollie_create_sales_invoice(
@@ -1156,8 +1152,8 @@ module MolliePay
         )
       end
 
-      assert hook_called, "on_mollie_sales_invoice_issued should have been called"
-      assert_equal "invoice_issued_hook", hook_invoice.mollie_id
+      invoice = SalesInvoice.find_by!(mollie_id: "invoice_issued_hook")
+      assert_enqueued_with job: NotifyBillableJob, args: [ @org, :on_mollie_sales_invoice_issued, invoice ]
     end
 
     test "mollie_mark_invoice_paid updates Mollie and local record" do

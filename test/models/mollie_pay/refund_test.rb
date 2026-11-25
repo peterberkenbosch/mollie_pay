@@ -2,6 +2,8 @@ require "test_helper"
 
 module MolliePay
   class RefundTest < ActiveSupport::TestCase
+    include ActiveJob::TestHelper
+
     test "refunded? reflects status" do
       refund = mollie_pay_refunds(:acme_refund)
       assert_not refund.refunded?
@@ -27,8 +29,6 @@ module MolliePay
 
     test "record_from_mollie stores a canceled refund without firing the refund hook" do
       existing = mollie_pay_refunds(:acme_refund)
-      hook_calls = []
-      Organization.define_method(:on_mollie_refund_processed) { |refund| hook_calls << refund }
 
       mollie_refund = stub_mollie_refund(
         id:              existing.mollie_id,
@@ -42,9 +42,7 @@ module MolliePay
 
       assert_equal "canceled", existing.reload.status
       assert_nil existing.refunded_at
-      assert_empty hook_calls
-    ensure
-      Organization.remove_method(:on_mollie_refund_processed)
+      assert_no_enqueued_jobs only: NotifyBillableJob
     end
 
     test "requires positive amount" do
@@ -111,6 +109,7 @@ module MolliePay
 
       assert_equal "refunded", existing.reload.status
       assert_not_nil existing.refunded_at
+      assert_enqueued_with job: NotifyBillableJob, args: [ existing.payment.customer.owner, :on_mollie_refund_processed, existing ]
     end
 
     test "record_from_mollie does not overwrite refunded_at on duplicate webhook" do
