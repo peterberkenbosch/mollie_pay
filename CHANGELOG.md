@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Fixed
+- A mandate that is still `pending` when its first payment is paid is now
+  re-fetched by `MolliePay::RefreshPendingMandateJob` until Mollie reports it
+  `valid` or `invalid`, for 10 attempts over roughly four hours. Mollie sends no
+  webhook for that change, so with iDEAL the mandate stayed `pending` and
+  `on_mollie_mandate_created` never fired. Mandates already stuck `pending`
+  before this release are not picked up on their own; enqueue them once with
+  `MolliePay::Mandate.pending.find_each { |m| MolliePay::RefreshPendingMandateJob.perform_later(m) }`.
+- `on_mollie_mandate_created` fires once per mandate when two jobs see it turn
+  `valid` at the same time, and a late `pending` answer from Mollie no longer
+  replaces a stored `valid`. `mandated_at` is set once.
 - Subscriptions and refunds are fetched and created through the endpoints Mollie
   has for them. `Subscription#mollie_record` and `sub_` webhooks used
   `GET /v2/subscriptions/:id`, and `Refund#mollie_record`, `re_` webhooks and
@@ -16,6 +26,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - The `webmock_mollie_refund_create` helper stubs
   `POST /v2/payments/:payment_id/refunds` and takes an optional `payment_id:`.
   `stub_mollie_refund_create` stubs `Mollie::Payment::Refund.create`.
+
+### Changed
+- The README, tutorial and `docs/mandates.md` subscribe from
+  `on_mollie_mandate_created` instead of `on_mollie_first_payment_paid`, which
+  can run while the mandate is still pending.
 
 ## [0.9.0] - 2026-11-19
 
