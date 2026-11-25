@@ -268,6 +268,18 @@ module MolliePay
       assert_equal "tr_no_txn", Payment.find_by!(mollie_id: "tr_no_txn").mollie_id
     end
 
+    test "mollie_pay_once rejects an invalid amount before calling Mollie" do
+      never_called = ->(**) { flunk "Mollie::Payment.create should not be called" }
+
+      assert_no_difference -> { Payment.count } do
+        Mollie::Payment.stub(:create, never_called) do
+          assert_raises(ActiveRecord::RecordInvalid) do
+            @org.mollie_pay_once(amount: BigDecimal("0"), description: "Test", redirect_url: "https://example.com/return")
+          end
+        end
+      end
+    end
+
     test "mollie_pay_once saves no payment when Mollie refuses it" do
       refuse = ->(**) { raise Mollie::RequestError, "Unprocessable Entity" }
 

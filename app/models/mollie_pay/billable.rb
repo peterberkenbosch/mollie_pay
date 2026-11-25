@@ -317,9 +317,6 @@ module MolliePay
       mollie_payment
     end
 
-    # Mollie is called before anything is written, so no transaction is open
-    # while it answers. The id is assigned up front because the default
-    # redirect URL contains it.
     def create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type:, extra_params: {})
       customer = mollie_customer!
 
