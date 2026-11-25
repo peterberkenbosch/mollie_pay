@@ -138,7 +138,9 @@ GEM
       json-schema (>= 4.1)
     mini_mime (1.1.5)
     mini_portile2 (2.8.9)
-    minitest (5.27.0)
+    minitest (6.1.0)
+      drb (~> 2.0)
+      prism (>= 1.5, < 3)
     net-imap (0.6.8)
       date
       net-protocol
@@ -306,7 +308,7 @@ PLATFORMS
   x86_64-linux-musl
 
 DEPENDENCIES
-  minitest (~> 5.25)
+  minitest (~> 6.1)
   mollie-api-ruby!
   mollie_pay!
   puma
@@ -356,7 +358,7 @@ CHECKSUMS
   mcp (0.8.0) sha256=ae8bd146bb8e168852866fd26f805f52744f6326afb3211e073f78a95e0c34fb
   mini_mime (1.1.5) sha256=8681b7e2e4215f2a159f9400b5816d85e9d8c6c6b491e96a12797e798f8bccef
   mini_portile2 (2.8.9) sha256=0cd7c7f824e010c072e33f68bc02d85a00aeb6fce05bb4819c03dfd3c140c289
-  minitest (5.27.0) sha256=2d3b17f8a36fe7801c1adcffdbc38233b938eb0b4966e97a6739055a45fa77d5
+  minitest (6.1.0) sha256=ff373595aa8888631e8a5463986a76b3845346ae6d7fa46e139c1633d418076e
   mollie-api-ruby (4.19.1)
   mollie_pay (0.9.0)
   net-imap (0.6.8) sha256=eb30bb62227b64a3af6b518b04b2375113d69f68f15de59b0193b07d98acf6d9
