@@ -421,6 +421,55 @@ module MolliePay
       assert_not_nil subscription.canceled_at
     end
 
+    # mollie_subscribe returns a pending subscription instead of creating
+    # another, so cancel has to reach it or it can never be replaced.
+    test "mollie_cancel_subscription cancels a pending subscription" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+      subscription.update!(status: "pending")
+
+      stub_mollie_subscription_cancel do
+        @org.mollie_cancel_subscription
+      end
+
+      assert_equal "canceled", subscription.reload.status
+      assert_not_nil subscription.canceled_at
+    end
+
+    # Mollie stops a subscription itself after failed payments and sends no
+    # webhook, so the local row can still say active when the host cancels.
+    test "mollie_cancel_subscription marks a subscription Mollie no longer knows as canceled" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+
+      with_mollie_subscription_delete(subscription, status: 404, title: "Not Found", detail: "No subscription exists with token #{subscription.mollie_id}.") do
+        @org.mollie_cancel_subscription
+      end
+
+      assert_equal "canceled", subscription.reload.status
+      assert_not_nil subscription.canceled_at
+    end
+
+    test "mollie_cancel_subscription marks a subscription Mollie already cancelled as canceled" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+
+      with_mollie_subscription_delete(subscription, status: 422, title: "Unprocessable Entity", detail: "The subscription has been cancelled") do
+        @org.mollie_cancel_subscription
+      end
+
+      assert_equal "canceled", subscription.reload.status
+      assert_not_nil subscription.canceled_at
+    end
+
+    test "mollie_cancel_subscription raises other refusals and keeps the subscription" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+
+      with_mollie_subscription_delete(subscription, status: 422, title: "Unprocessable Entity", detail: "The customer could not be found") do
+        assert_raises(Mollie::RequestError) { @org.mollie_cancel_subscription }
+      end
+
+      assert_equal "active", subscription.reload.status
+      assert_nil subscription.canceled_at
+    end
+
     test "mollie_cancel_subscription calls Mollie::Customer::Subscription.cancel" do
       subscription = mollie_pay_subscriptions(:acme_monthly)
       received_id = nil
@@ -1462,6 +1511,15 @@ module MolliePay
           customer: other_customer, mollie_id: "tr_other_#{suffix}",
           status: "authorized", amount: BigDecimal("50.00"), currency: "EUR", sequence_type: "oneoff"
         )
+      end
+
+      def with_mollie_subscription_delete(subscription, status:, title:, detail:)
+        url = "#{MOLLIE_API_BASE}/customers/#{subscription.customer.mollie_id}/subscriptions/#{subscription.mollie_id}"
+        stub_request(:delete, url)
+          .to_return(status: status, body: { status: status, title: title, detail: detail }.to_json, headers: { "Content-Type" => "application/hal+json" })
+        yield
+      ensure
+        WebMock.reset!
       end
   end
 end

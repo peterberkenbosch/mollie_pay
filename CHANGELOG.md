@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Fixed
+- `mollie_cancel_subscription` cancels a `pending` subscription. It looked only
+  at `active` ones, while `mollie_subscribe` returns an existing `pending`
+  subscription instead of creating another, so a pending subscription could be
+  neither cancelled nor replaced.
+- `mollie_cancel_subscription` marks the local subscription `canceled` when
+  Mollie no longer knows it (404) or answers that it has already been cancelled
+  (422). Mollie stops a subscription itself after failed payments and sends no
+  webhook for it, so the local row stayed `active` for good. Other errors still
+  raise and leave the row unchanged.
 - A mandate that is still `pending` when its first payment is paid is now
   re-fetched by `MolliePay::RefreshPendingMandateJob` until Mollie reports it
   `valid` or `invalid`, for 10 attempts over roughly four hours. Mollie sends no

@@ -128,13 +128,10 @@ module MolliePay
     end
 
     def mollie_cancel_subscription(name: "default")
-      subscription = mollie_subscriptions.active.named(name).first
+      subscription = mollie_subscriptions.where(status: Subscription::ACTIVE_STATUSES).named(name).first
       raise MolliePay::SubscriptionNotFound, "No active subscription" unless subscription
 
-      Mollie::Customer::Subscription.cancel(
-        subscription.mollie_id,
-        customer_id: mollie_customer.mollie_id
-      )
+      cancel_subscription_on_mollie(subscription)
       subscription.update!(status: "canceled", canceled_at: Time.current)
     end
 
@@ -352,6 +349,17 @@ module MolliePay
 
         payment
       end
+    end
+
+    # Mollie stops a subscription itself after failed payments and sends no
+    # webhook for it, so a subscription stored as running may already be gone
+    # (404) or cancelled (422) there. Both leave it cancelled, as asked.
+    def cancel_subscription_on_mollie(subscription)
+      Mollie::Customer::Subscription.cancel(subscription.mollie_id, customer_id: mollie_customer.mollie_id)
+    rescue Mollie::ResourceNotFoundError
+      nil
+    rescue Mollie::RequestError => error
+      raise unless error.status == 422 && error.detail.to_s.match?(/has been cancell?ed/i)
     end
 
     def create_mollie_customer_on_mollie
