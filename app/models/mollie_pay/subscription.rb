@@ -61,7 +61,7 @@ module MolliePay
     end
 
     def mollie_record
-      Mollie::Subscription.get(mollie_id, customer_id: customer.mollie_id)
+      Mollie::Customer::Subscription.get(mollie_id, customer_id: customer.mollie_id)
     end
 
     def active?

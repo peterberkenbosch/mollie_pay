@@ -96,7 +96,7 @@ All IDs default to random values (`tr_test<hex>`, etc.) when not specified.
 | `stub_mollie_subscription_create` | `Mollie::Customer::Subscription.create` | `status: "active"`, random ID |
 | `stub_mollie_subscription_cancel` | `Mollie::Customer::Subscription.cancel` | Returns nil |
 | `stub_mollie_subscription_update` | `Mollie::Customer::Subscription.update` | `status: "active"`, random ID |
-| `stub_mollie_refund_create` | `Mollie::Refund.create` | `status: "queued"`, random ID |
+| `stub_mollie_refund_create` | `Mollie::Payment::Refund.create` | `status: "queued"`, random ID |
 | `stub_mollie_capture_create` | `Mollie::Payment.get` (authorized payment) + `Mollie::Payment::Capture.create` | Random `cpt_` ID; `status: "open"` makes `mollie_capture` raise |
 | `stub_mollie_payment_release_authorization` | `Mollie::Payment.get` (authorized payment whose `release_authorization` returns true) | `status: "paid"` makes `mollie_release_authorization` raise |
 
@@ -166,9 +166,9 @@ end
 |---|---|---|
 | `webmock_mollie_payment_create` | `POST /v2/payments` | Full payment JSON with checkout link |
 | `webmock_mollie_customer_and_payment_create` | `POST /v2/customers` + `POST /v2/payments` | Both resources |
-| `webmock_mollie_subscription_create` | `POST /v2/subscriptions` | Active subscription JSON |
-| `webmock_mollie_subscription_cancel` | `DELETE /v2/subscriptions/:id` | 204 No Content |
-| `webmock_mollie_refund_create` | `POST /v2/refunds` | Queued refund JSON |
+| `webmock_mollie_subscription_create` | `POST /v2/customers/:id/subscriptions` | Active subscription JSON |
+| `webmock_mollie_subscription_cancel` | `DELETE /v2/customers/:id/subscriptions/:id` | 204 No Content |
+| `webmock_mollie_refund_create` | `POST /v2/payments/:id/refunds` | Queued refund JSON |
 | `webmock_mollie_payment_get` | `GET /v2/payments/:id` | Payment JSON (for webhook tests) |
 | `webmock_mollie_payment_get_with_chargebacks` | `GET /v2/payments/:id` | Payment JSON with embedded chargebacks |
 

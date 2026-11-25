@@ -186,6 +186,16 @@ module MolliePay
       end
     end
 
+    test "mollie_refund creates the refund through the payment refunds endpoint" do
+      payment = mollie_pay_payments(:acme_oneoff)
+
+      webmock_mollie_refund_create(payment_id: payment.mollie_id) do
+        @org.mollie_refund(payment)
+
+        assert_requested :post, "#{MOLLIE_API_BASE}/payments/#{payment.mollie_id}/refunds"
+      end
+    end
+
     test "webmock_mollie_payment_get loads an alternate fixture" do
       customer = mollie_pay_customers(:acme)
 

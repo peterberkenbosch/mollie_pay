@@ -812,12 +812,24 @@ module MolliePay
       response = fake_mollie_refund(id: "re_idem")
       fake_create = ->(**args) { received_args = args; response }
 
-      Mollie::Refund.stub(:create, fake_create) do
+      Mollie::Payment::Refund.stub(:create, fake_create) do
         @org.mollie_refund(mollie_pay_payments(:acme_oneoff))
       end
 
       assert received_args[:idempotency_key].present?
       assert_match(/\A[0-9a-f-]{36}\z/, received_args[:idempotency_key])
+    end
+
+    test "mollie_refund sends the idempotency key as a header on the refund POST" do
+      payment = mollie_pay_payments(:acme_oneoff)
+
+      webmock_mollie_refund_create(payment_id: payment.mollie_id) do
+        @org.mollie_refund(payment)
+
+        assert_requested :post, "#{MOLLIE_API_BASE}/payments/#{payment.mollie_id}/refunds" do |request|
+          request.headers["Idempotency-Key"].to_s.match?(/\A[0-9a-f-]{36}\z/)
+        end
+      end
     end
 
     test "customer creation sends idempotency key to Mollie" do
