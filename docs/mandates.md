@@ -50,9 +50,18 @@ and Bancontact. **SEPA Direct Debit must be enabled on your Mollie profile**,
 otherwise Mollie cannot create the mandate.
 
 Mollie can report the mandate as `pending` while it has not yet received the
-IBAN from the first payment. MolliePay stores it as `pending` and re-fetches it
-on later webhooks for that payment; `on_mollie_mandate_created` fires when it
-turns `valid`. Mollie sends no webhook for the mandate itself.
+IBAN from the first payment. This happens with iDEAL too: the payment can arrive
+`paid` a few seconds before its mandate is `valid`. Mollie sends no webhook for
+the mandate itself, and none for the payment once it is paid. MolliePay stores
+the mandate as `pending` and `MolliePay::RefreshPendingMandateJob` re-fetches it
+with growing waits until Mollie reports it `valid` or `invalid`.
+`on_mollie_mandate_created` fires once when it turns `valid`, so subscribe from
+that hook rather than from `on_mollie_first_payment_paid`.
+
+The job tries 10 times over roughly four hours. If the mandate is still
+`pending` after that, the job fails with `MolliePay::MandatePending` in your
+queue backend and the mandate stays `pending`. Retry that job, or enqueue a new
+one with `MolliePay::RefreshPendingMandateJob.perform_later(mandate)`.
 
 ### Path 2: Direct Mandate Creation
 

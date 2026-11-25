@@ -1,6 +1,7 @@
 module MolliePay
   class Error                < StandardError; end
   class MandateRequired      < Error; end
+  class MandatePending       < Error; end
   class SubscriptionNotFound < Error; end
   class PaymentNotCancelable < Error; end
   class PaymentNotAuthorized < Error; end
