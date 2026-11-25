@@ -421,8 +421,6 @@ module MolliePay
       assert_not_nil subscription.canceled_at
     end
 
-    # mollie_subscribe returns a pending subscription instead of creating
-    # another, so cancel has to reach it or it can never be replaced.
     test "mollie_cancel_subscription cancels a pending subscription" do
       subscription = mollie_pay_subscriptions(:acme_monthly)
       subscription.update!(status: "pending")
@@ -435,8 +433,6 @@ module MolliePay
       assert_not_nil subscription.canceled_at
     end
 
-    # Mollie stops a subscription itself after failed payments and sends no
-    # webhook, so the local row can still say active when the host cancels.
     test "mollie_cancel_subscription marks a subscription Mollie no longer knows as canceled" do
       subscription = mollie_pay_subscriptions(:acme_monthly)
 
