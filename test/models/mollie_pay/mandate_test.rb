@@ -57,6 +57,43 @@ module MolliePay
       assert_equal "creditcard", mandate.method
     end
 
+    # The refresh job and a replayed payment webhook can both have read the
+    # mandate as pending before either stored Mollie's "valid".
+    test "record_from_mollie_mandate fires the created hook once when two writers saw it pending" do
+      customer = mollie_pay_customers(:acme)
+      Mandate.create!(customer: customer, mollie_id: "mdt_race", status: "pending", method: "directdebit")
+      stale = Mandate.find_by!(mollie_id: "mdt_race")
+      valid = OpenStruct.new(id: "mdt_race", status: "valid", method: "directdebit")
+      created = []
+      Organization.define_method(:on_mollie_mandate_created) { |mandate| created << mandate.mollie_id }
+
+      perform_enqueued_jobs(only: NotifyBillableJob) do
+        Mandate.record_from_mollie_mandate(valid, customer)
+        Mandate.stub(:find_or_initialize_by, stale) do
+          Mandate.record_from_mollie_mandate(valid, customer)
+        end
+      end
+
+      assert_equal [ "mdt_race" ], created
+      assert_equal "valid", Mandate.find_by!(mollie_id: "mdt_race").status
+    ensure
+      Organization.remove_method(:on_mollie_mandate_created)
+    end
+
+    # A refresh that fetched the mandate while it was pending can store that
+    # answer after a webhook already stored it valid.
+    test "record_from_mollie_mandate keeps a valid mandate valid when a stale pending answer lands" do
+      customer = mollie_pay_customers(:acme)
+      Mandate.create!(customer: customer, mollie_id: "mdt_stale", status: "pending", method: "directdebit")
+
+      Mandate.record_from_mollie_mandate(OpenStruct.new(id: "mdt_stale", status: "valid", method: "directdebit"), customer)
+      Mandate.record_from_mollie_mandate(OpenStruct.new(id: "mdt_stale", status: "pending", method: "directdebit"), customer)
+
+      mandate = Mandate.find_by!(mollie_id: "mdt_stale")
+      assert_equal "valid", mandate.status
+      assert_not_nil mandate.mandated_at
+    end
+
     test "record_from_mollie_payment creates mandate from first payment" do
       payment = mollie_pay_payments(:acme_first)
 

@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Fixed
+- A mandate that is still `pending` when its first payment is paid is now
+  re-fetched by `MolliePay::RefreshPendingMandateJob` until Mollie reports it
+  `valid` or `invalid`, for 10 attempts over roughly four hours. Mollie sends no
+  webhook for that change, so with iDEAL the mandate stayed `pending` and
+  `on_mollie_mandate_created` never fired. Mandates already stuck `pending`
+  before this release are not picked up on their own; enqueue them once with
+  `MolliePay::Mandate.pending.find_each { |m| MolliePay::RefreshPendingMandateJob.perform_later(m) }`.
+- `on_mollie_mandate_created` fires once per mandate when two jobs see it turn
+  `valid` at the same time, and a late `pending` answer from Mollie no longer
+  replaces a stored `valid`. `mandated_at` is set once.
 - A hook that raises is now called again. Each `on_mollie_*` hook triggered by
   a webhook runs in `MolliePay::NotifyBillableJob`, enqueued after the record is
   saved, and that job retries the hook (polynomial backoff, 5 attempts). Before,
@@ -14,6 +24,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   subscription.
 
 ### Changed
+- The README, tutorial and `docs/mandates.md` subscribe from
+  `on_mollie_mandate_created` instead of `on_mollie_first_payment_paid`, which
+  can run while the mandate is still pending.
 - **Breaking:** hooks run asynchronously and at least once, in their own job,
   instead of inside the call that saved the change. That covers every
   webhook-triggered hook, and also `on_mollie_mandate_created` from

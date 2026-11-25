@@ -250,8 +250,8 @@ more than once. Make hooks idempotent.
 class Organization < ApplicationRecord
   include MolliePay::Billable
 
-  def on_mollie_first_payment_paid(payment)
-    # Mandate established — safe to subscribe
+  def on_mollie_mandate_created(mandate)
+    # Mandate is valid, safe to subscribe
   end
 
   def on_mollie_payment_paid(payment)
