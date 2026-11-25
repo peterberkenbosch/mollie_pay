@@ -21,7 +21,7 @@ module MolliePay
       def sync_subscription(mollie_id)
         subscription = Subscription.find_by!(mollie_id: mollie_id)
         Subscription.record_from_mollie(
-          Mollie::Subscription.get(mollie_id, customer_id: subscription.customer.mollie_id)
+          Mollie::Customer::Subscription.get(mollie_id, customer_id: subscription.customer.mollie_id)
         )
       rescue ActiveRecord::RecordNotFound
         Rails.logger.info("[MolliePay] Discarding subscription webhook — local record not found: #{mollie_id}")
@@ -30,7 +30,7 @@ module MolliePay
       def sync_refund(mollie_id)
         refund = Refund.find_by!(mollie_id: mollie_id)
         Refund.record_from_mollie(
-          Mollie::Refund.get(mollie_id, payment_id: refund.payment.mollie_id)
+          Mollie::Payment::Refund.get(mollie_id, payment_id: refund.payment.mollie_id)
         )
       rescue ActiveRecord::RecordNotFound
         Rails.logger.info("[MolliePay] Discarding refund webhook — local record not found: #{mollie_id}")

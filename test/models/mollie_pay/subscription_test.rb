@@ -143,6 +143,16 @@ module MolliePay
       assert_equal "default", subscription.name
     end
 
+    test "mollie_record fetches the subscription through its customer" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+      customer_id = subscription.customer.mollie_id
+      stub_request(:get, "#{MOLLIE_API_BASE}/customers/#{customer_id}/subscriptions/#{subscription.mollie_id}")
+        .to_return(status: 200, body: mollie_fixture("subscription", id: subscription.mollie_id, customer_id: customer_id),
+                   headers: { "Content-Type" => "application/hal+json" })
+
+      assert_equal Date.new(2026, 4, 15), subscription.mollie_record.next_payment_date
+    end
+
     private
 
       def stub_mollie_subscription(id:, status:, customer_id:, interval:, amount_value:, amount_currency:, metadata: nil)

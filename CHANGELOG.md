@@ -16,6 +16,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - `on_mollie_mandate_created` fires once per mandate when two jobs see it turn
   `valid` at the same time, and a late `pending` answer from Mollie no longer
   replaces a stored `valid`. `mandated_at` is set once.
+- Subscriptions and refunds are fetched and created through the endpoints Mollie
+  has for them. `Subscription#mollie_record` and `sub_` webhooks used
+  `GET /v2/subscriptions/:id`, and `Refund#mollie_record`, `re_` webhooks and
+  `mollie_refund` used `/v2/refunds`. Mollie has none of these, so the reads
+  answered 404 (and the webhook job discarded the update) and refunds could not
+  be created. They now use `/v2/customers/:id/subscriptions/:id` and
+  `/v2/payments/:id/refunds`.
+- The `webmock_mollie_refund_create` helper stubs
+  `POST /v2/payments/:payment_id/refunds` and takes an optional `payment_id:`.
+  `stub_mollie_refund_create` stubs `Mollie::Payment::Refund.create`.
 
 ### Changed
 - The README, tutorial and `docs/mandates.md` subscribe from
