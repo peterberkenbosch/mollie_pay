@@ -6,6 +6,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Fixed
+- `mollie_pay_once` and `mollie_pay_first` call Mollie before writing the
+  payment, instead of inside a database transaction. On SQLite that
+  transaction held the only write lock, so every other write in the app waited
+  for Mollie's answer, up to the SDK's 60-second timeouts.
 - A mandate that is still `pending` when its first payment is paid is now
   re-fetched by `MolliePay::RefreshPendingMandateJob` until Mollie reports it
   `valid` or `invalid`, for 10 attempts over roughly four hours. Mollie sends no

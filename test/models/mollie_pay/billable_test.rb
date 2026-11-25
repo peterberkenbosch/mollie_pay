@@ -252,6 +252,34 @@ module MolliePay
       end
     end
 
+    # On SQLite an open transaction holds the database's only write lock, so
+    # every other write in the app would wait for Mollie's answer.
+    test "mollie_pay_once calls Mollie outside a database transaction" do
+      outer_transactions = Payment.connection.open_transactions
+      transactions_during_call = nil
+      response = fake_mollie_payment(id: "tr_no_txn")
+      fake_create = ->(**) { transactions_during_call = Payment.connection.open_transactions; response }
+
+      Mollie::Payment.stub(:create, fake_create) do
+        @org.mollie_pay_once(amount: BigDecimal("10.00"), description: "Test", redirect_url: "https://example.com/return")
+      end
+
+      assert_equal outer_transactions, transactions_during_call
+      assert_equal "tr_no_txn", Payment.find_by!(mollie_id: "tr_no_txn").mollie_id
+    end
+
+    test "mollie_pay_once saves no payment when Mollie refuses it" do
+      refuse = ->(**) { raise Mollie::RequestError, "Unprocessable Entity" }
+
+      assert_no_difference -> { Payment.count } do
+        Mollie::Payment.stub(:create, refuse) do
+          assert_raises(Mollie::RequestError) do
+            @org.mollie_pay_once(amount: BigDecimal("10.00"), description: "Test", redirect_url: "https://example.com/return")
+          end
+        end
+      end
+    end
+
     test "mollie_pay_once creates customer on mollie if none exists" do
       org = Organization.create!(name: "Fresh Org", email: "fresh@org.nl")
       assert_nil org.mollie_customer

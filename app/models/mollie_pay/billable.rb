@@ -317,41 +317,44 @@ module MolliePay
       mollie_payment
     end
 
+    # Mollie is called before anything is written, so no transaction is open
+    # while it answers. The id is assigned up front because the default
+    # redirect URL contains it.
     def create_mollie_payment(amount:, description:, redirect_url:, method:, metadata:, sequence_type:, extra_params: {})
       customer = mollie_customer!
 
-      Payment.transaction do
-        payment = Payment.create!(
-          customer:      customer,
-          amount:        amount,
-          currency:      MolliePay.configuration.currency,
-          sequence_type: sequence_type
-        )
+      payment = Payment.new(
+        id:            SecureRandom.uuid_v7,
+        customer:      customer,
+        amount:        amount,
+        currency:      MolliePay.configuration.currency,
+        sequence_type: sequence_type
+      )
+      payment.validate!
 
-        resolved_redirect_url = redirect_url || MolliePay.configuration.redirect_url_for(payment)
-        raise MolliePay::ConfigurationError, "No redirect_url provided and default_redirect_path is not configured" if resolved_redirect_url.blank?
+      resolved_redirect_url = redirect_url || MolliePay.configuration.redirect_url_for(payment)
+      raise MolliePay::ConfigurationError, "No redirect_url provided and default_redirect_path is not configured" if resolved_redirect_url.blank?
 
-        mp = Mollie::Payment.create(
-          amount:          mollie_amount(amount),
-          description:     description,
-          redirectUrl:     resolved_redirect_url,
-          webhookUrl:      MolliePay.configuration.webhook_url,
-          customerId:      customer.mollie_id,
-          sequenceType:    sequence_type,
-          method:          method,
-          metadata:        metadata,
-          **extra_params,
-          idempotency_key: SecureRandom.uuid
-        )
+      mp = Mollie::Payment.create(
+        amount:          mollie_amount(amount),
+        description:     description,
+        redirectUrl:     resolved_redirect_url,
+        webhookUrl:      MolliePay.configuration.webhook_url,
+        customerId:      customer.mollie_id,
+        sequenceType:    sequence_type,
+        method:          method,
+        metadata:        metadata,
+        **extra_params,
+        idempotency_key: SecureRandom.uuid
+      )
 
-        payment.update!(
-          mollie_id:    mp.id,
-          status:       mp.status,
-          checkout_url: mp.checkout_url
-        )
+      payment.update!(
+        mollie_id:    mp.id,
+        status:       mp.status,
+        checkout_url: mp.checkout_url
+      )
 
-        payment
-      end
+      payment
     end
 
     def create_mollie_customer_on_mollie
