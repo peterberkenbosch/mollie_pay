@@ -140,8 +140,9 @@ class OrganizationIntegrationTest < ActiveSupport::TestCase
 end
 ```
 
-Webhook-triggered hooks run in `MolliePay::NotifyBillableJob`, not inside
-`ProcessWebhookJob`. To run your hook in a webhook test, wrap the call in
+Hooks run in `MolliePay::NotifyBillableJob`, not inside `ProcessWebhookJob`
+or the `Billable` call that saved the change (only `mollie_swap_subscription`
+and `mollie_mark_invoice_paid` call their hook inline). To run your hook in a webhook test, wrap the call in
 `perform_enqueued_jobs { ... }` from `ActiveJob::TestHelper`, or assert the
 job was enqueued:
 

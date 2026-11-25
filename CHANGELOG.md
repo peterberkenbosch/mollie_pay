@@ -14,12 +14,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   subscription.
 
 ### Changed
-- Webhook-triggered hooks run asynchronously and at least once, in their own
-  job, instead of inside the webhook job. Hooks called from `Billable` methods
-  your app calls directly (`mollie_swap_subscription`, `mollie_mark_invoice_paid`)
-  still run inline. Tests that assert a hook was called after a webhook need to
-  perform enqueued jobs or assert that `MolliePay::NotifyBillableJob` was
-  enqueued.
+- **Breaking:** hooks run asynchronously and at least once, in their own job,
+  instead of inside the call that saved the change. That covers every
+  webhook-triggered hook, and also `on_mollie_mandate_created` from
+  `mollie_create_mandate` and `on_mollie_sales_invoice_issued` from
+  `mollie_create_sales_invoice`. Only `mollie_swap_subscription` and
+  `mollie_mark_invoice_paid` still call their hook inline. Hooks are no longer
+  guaranteed to run in a fixed order, for example `on_mollie_mandate_created`
+  before `on_mollie_first_payment_paid`. Tests that assert a hook was called
+  need to perform enqueued jobs or assert that `MolliePay::NotifyBillableJob`
+  was enqueued.
 
 ## [0.9.0] - 2026-11-19
 

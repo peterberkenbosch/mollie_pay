@@ -80,6 +80,18 @@ module MolliePay
       assert_enqueued_with job: NotifyBillableJob, args: [ existing.customer.owner, :on_mollie_subscription_canceled, existing ]
     end
 
+    test "notify_billable enqueues the suspended and completed hooks" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+      owner = subscription.customer.owner
+
+      { "suspended" => :on_mollie_subscription_suspended, "completed" => :on_mollie_subscription_completed }.each do |status, hook|
+        subscription.status = status
+        subscription.notify_billable
+
+        assert_enqueued_with job: NotifyBillableJob, args: [ owner, hook, subscription ]
+      end
+    end
+
     test "name validates presence" do
       sub = mollie_pay_subscriptions(:acme_monthly)
       sub.name = ""

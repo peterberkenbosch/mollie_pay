@@ -2,6 +2,8 @@ require "test_helper"
 
 module MolliePay
   class PaymentTest < ActiveSupport::TestCase
+    include ActiveJob::TestHelper
+
     test "paid? reflects status" do
       assert mollie_pay_payments(:acme_first).paid?
       assert_not mollie_pay_payments(:acme_oneoff).paid?
@@ -15,6 +17,23 @@ module MolliePay
     test "recurring? reflects sequence_type" do
       assert mollie_pay_payments(:acme_recurring).recurring?
       assert_not mollie_pay_payments(:acme_first).recurring?
+    end
+
+    test "notify_billable enqueues the failed hook for a failed payment" do
+      payment = mollie_pay_payments(:acme_oneoff)
+      payment.status = "failed"
+
+      payment.notify_billable
+
+      assert_enqueued_with job: NotifyBillableJob, args: [ payment.customer.owner, :on_mollie_payment_failed, payment ]
+    end
+
+    test "notify_billable enqueues the charged hook for a paid recurring payment" do
+      payment = mollie_pay_payments(:acme_recurring)
+
+      payment.notify_billable
+
+      assert_enqueued_with job: NotifyBillableJob, args: [ payment.customer.owner, :on_mollie_subscription_charged, payment ]
     end
 
     test "mollie_amount returns correct hash" do

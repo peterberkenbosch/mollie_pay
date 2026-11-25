@@ -92,7 +92,6 @@ module MolliePay
 
       assert_equal "refunded", existing.reload.status
       assert_not_nil existing.refunded_at
-      assert_enqueued_with job: NotifyBillableJob, args: [ existing.payment.customer.owner, :on_mollie_refund_processed, existing ]
     end
 
     test "record_from_mollie calls refund hook on status transition" do
