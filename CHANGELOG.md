@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Fixed
+- `mollie_revoke_mandate` raises `MolliePay::Error` when the mandate belongs to
+  another customer, before calling Mollie, as the payment methods already do.
 - `mollie_pay_once` and `mollie_pay_first` call Mollie before writing the
   payment, instead of inside a database transaction. On SQLite that
   transaction held the only write lock, so every other write in the app waited
