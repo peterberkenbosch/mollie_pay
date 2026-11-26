@@ -60,6 +60,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   before `on_mollie_first_payment_paid`. Tests that assert a hook was called
   need to perform enqueued jobs or assert that `MolliePay::NotifyBillableJob`
   was enqueued.
+- `mollie_cancel_subscription` returns the canceled subscription instead of
+  `true`, like `mollie_subscribe` and `mollie_swap_subscription` return theirs.
 
 ## [0.9.0] - 2026-11-19
 

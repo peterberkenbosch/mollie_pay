@@ -461,6 +461,17 @@ module MolliePay
       assert_not_nil subscription.canceled_at
     end
 
+    test "mollie_cancel_subscription returns the canceled subscription" do
+      subscription = mollie_pay_subscriptions(:acme_monthly)
+
+      canceled = stub_mollie_subscription_cancel do
+        @org.mollie_cancel_subscription
+      end
+
+      assert_equal subscription, canceled
+      assert canceled.canceled?
+    end
+
     test "mollie_cancel_subscription cancels a pending subscription" do
       subscription = mollie_pay_subscriptions(:acme_monthly)
       subscription.update!(status: "pending")

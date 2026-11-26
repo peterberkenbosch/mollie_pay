@@ -133,6 +133,7 @@ module MolliePay
 
       cancel_subscription_on_mollie(subscription)
       subscription.update!(status: "canceled", canceled_at: Time.current)
+      subscription
     end
 
     def mollie_swap_subscription(name: "default", amount: nil, interval: nil)
