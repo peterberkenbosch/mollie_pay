@@ -315,7 +315,7 @@ end
 |---|---|
 | `MolliePay::ConfigurationError` | `api_key` or `host` is missing at boot, or no `redirect_url` is available |
 | `MolliePay::MandateRequired` | `mollie_subscribe` is called without a valid mandate |
-| `MolliePay::SubscriptionNotFound` | `mollie_cancel_subscription` is called without an active subscription |
+| `MolliePay::SubscriptionNotFound` | `mollie_cancel_subscription` or `mollie_swap_subscription` is called without an active or pending subscription |
 | `MolliePay::PaymentNotCancelable` | `mollie_cancel_payment` is called on a payment Mollie says is not cancelable |
 | `MolliePay::PaymentNotAuthorized` | `mollie_capture` or `mollie_release_authorization` is called on a payment whose live Mollie status is not `authorized` |
 

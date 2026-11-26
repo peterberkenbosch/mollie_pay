@@ -10,6 +10,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   payment, instead of inside a database transaction. On SQLite that
   transaction held the only write lock, so every other write in the app waited
   for Mollie's answer, up to the SDK's 60-second timeouts.
+- `mollie_cancel_subscription` cancels a `pending` subscription. It looked only
+  at `active` ones, while `mollie_subscribe` returns an existing `pending`
+  subscription instead of creating another, so a pending subscription could be
+  neither cancelled nor replaced.
+- `mollie_cancel_subscription` marks the local subscription `canceled` when
+  Mollie no longer knows it (404) or answers that it has already been cancelled
+  (422). Mollie stops a subscription itself after failed payments and sends no
+  webhook for it, so the local row stayed `active` for good. Other errors still
+  raise and leave the row unchanged.
 - A mandate that is still `pending` when its first payment is paid is now
   re-fetched by `MolliePay::RefreshPendingMandateJob` until Mollie reports it
   `valid` or `invalid`, for 10 attempts over roughly four hours. Mollie sends no
@@ -51,6 +60,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   before `on_mollie_first_payment_paid`. Tests that assert a hook was called
   need to perform enqueued jobs or assert that `MolliePay::NotifyBillableJob`
   was enqueued.
+- `mollie_cancel_subscription` returns the canceled subscription instead of
+  `true`, like `mollie_subscribe` and `mollie_swap_subscription` return theirs.
 
 ## [0.9.0] - 2026-11-19
 
