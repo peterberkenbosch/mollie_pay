@@ -263,6 +263,8 @@ module MolliePay
     end
 
     def mollie_mark_invoice_paid(invoice, source: "manual")
+      verify_sales_invoice_ownership!(invoice)
+
       raise MolliePay::InvoiceNotUpdatable, "Only issued invoices can be marked as paid" unless invoice.issued?
 
       MolliePay.update_sales_invoice(
@@ -370,6 +372,10 @@ module MolliePay
         idempotency_key: SecureRandom.uuid
       )
       create_mollie_customer!(mollie_id: mc.id)
+    end
+
+    def verify_sales_invoice_ownership!(invoice)
+      raise MolliePay::Error, "Sales invoice does not belong to this customer" unless mollie_sales_invoices.exists?(id: invoice.id)
     end
 
     def build_sales_invoice_recipient
