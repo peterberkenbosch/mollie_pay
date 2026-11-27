@@ -191,6 +191,7 @@ MolliePay.configure do |config|
   config.default_redirect_path = "/payments/:id"
   config.currency              = "EUR"
   config.webhook_signing_secret = ENV["MOLLIE_WEBHOOK_SIGNING_SECRET"]
+  config.request_signing_key    = ENV["MOLLIE_REQUEST_SIGNING_KEY"]
 end
 ```
 
@@ -201,6 +202,12 @@ automatically. No separate Mollie SDK setup is needed.
 verification for the `/webhook_events` endpoint. Accepts a string or an
 array of strings (for secret rotation). If not set, events are accepted
 without verification.
+
+**Request signing:** Set `request_signing_key` (an Ed25519 private key as
+PEM) to sign every request to Mollie with `X-Client-Signature` and
+`X-Client-Signed-At`. `MolliePay::RequestSignature` does this. The SDK has no
+hook for it, so the engine prepends into `Mollie::Client#perform_http_call` and
+signs in `Net::HTTP#request`, only for requests sent from inside that call.
 
 **Note:** `ProcessWebhookEventJob` receives event data with **camelCase**
 string keys (e.g., `event["entityId"]`, not `event["entity_id"]`), unlike

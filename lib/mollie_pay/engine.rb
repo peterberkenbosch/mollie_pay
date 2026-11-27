@@ -10,6 +10,13 @@ module MolliePay
       end
     end
 
+    initializer "mollie_pay.sign_mollie_requests" do
+      ::Mollie::Client.prepend(MolliePay::RequestSignature::Client)
+
+      # Reads the key at boot, so a bad key fails here and not on the first payment.
+      config.after_initialize { MolliePay.configuration.request_signing_private_key }
+    end
+
     initializer "mollie_pay.warn_missing_webhook_secret", after: :finisher_hook do
       config.after_initialize do
         if MolliePay.configuration.webhook_signing_secrets.nil?

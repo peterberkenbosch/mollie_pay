@@ -7,6 +7,7 @@ module MolliePay
     attr_accessor :default_redirect_path
     attr_accessor :currency
     attr_accessor :webhook_signing_secret
+    attr_accessor :request_signing_key
 
     def initialize
       @currency = "EUR"
@@ -34,6 +35,21 @@ module MolliePay
     def webhook_signing_secrets
       secrets = Array(webhook_signing_secret).reject(&:blank?)
       secrets.empty? ? nil : secrets
+    end
+
+    # Returns nil (not configured) or the Ed25519 private key that signs every
+    # request to Mollie. request_signing_key holds it as PEM.
+    def request_signing_private_key
+      return nil if request_signing_key.blank?
+      return @request_signing_private_key if @request_signing_private_key_pem == request_signing_key
+
+      key = OpenSSL::PKey.read(request_signing_key)
+      raise ConfigurationError, "MolliePay.configuration.request_signing_key must be an Ed25519 private key" unless key.oid == "ED25519"
+
+      @request_signing_private_key_pem = request_signing_key
+      @request_signing_private_key = key
+    rescue OpenSSL::PKey::PKeyError
+      raise ConfigurationError, "MolliePay.configuration.request_signing_key is not a readable PEM private key"
     end
 
     def inspect

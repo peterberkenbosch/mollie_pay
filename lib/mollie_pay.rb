@@ -4,6 +4,7 @@ require "mollie_pay/version"
 require "mollie_pay/errors"
 require "mollie_pay/configuration"
 require "mollie_pay/webhook_signature"
+require "mollie_pay/request_signature"
 require "mollie_pay/engine"
 
 module MolliePay

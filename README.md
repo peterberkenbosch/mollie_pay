@@ -44,6 +44,26 @@ MolliePay.configure do |config|
 end
 ```
 
+### Request signing
+
+Mollie can require every API request to be signed with an Ed25519 key
+([request signing](https://docs.mollie.com/reference/request-signing)). Generate
+a key pair, paste the public key into the API key or access token in the Mollie
+dashboard, and give the engine the private key:
+
+```sh
+openssl genpkey -algorithm Ed25519 -out ed25519_private.pem
+openssl pkey -in ed25519_private.pem -pubout -out ed25519_public.pem
+```
+
+```ruby
+config.request_signing_key = ENV["MOLLIE_REQUEST_SIGNING_KEY"] # contents of ed25519_private.pem
+```
+
+Every request the engine sends to Mollie is then signed. Once a public key is
+registered, Mollie rejects unsigned requests with `401`. A key that is not an
+Ed25519 private key raises `MolliePay::ConfigurationError` at boot.
+
 ## Setup
 
 Include `MolliePay::Billable` in your paying model:

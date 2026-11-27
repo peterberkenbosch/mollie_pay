@@ -329,3 +329,4 @@ All inherit from `MolliePay::Error < StandardError`.
 | `host` | Yes | — | Your application's public URL (e.g. `https://yourapp.com`) |
 | `default_redirect_path` | No | — | Path where Mollie sends customers back after payment (e.g. `/payments/:id`) |
 | `currency` | No | `"EUR"` | ISO 4217 currency code for new payments/subscriptions |
+| `request_signing_key` | No | — | Ed25519 private key (PEM) that signs every request to Mollie. Required once a public key is registered on the API key or access token; see [request signing](https://docs.mollie.com/reference/request-signing) |

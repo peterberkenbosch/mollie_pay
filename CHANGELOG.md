@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- Request signing. Set `request_signing_key` to an Ed25519 private key (PEM)
+  and every request the engine sends to Mollie carries `X-Client-Signature`
+  and `X-Client-Signed-At`, as Mollie requires once a public key is registered
+  on the API key or access token. A key that is not Ed25519 raises
+  `MolliePay::ConfigurationError` at boot.
+
 ### Fixed
 - `mollie_revoke_mandate` raises `MolliePay::Error` when the mandate belongs to
   another customer, before calling Mollie, as the payment methods already do.
