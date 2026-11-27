@@ -52,6 +52,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   subscription.
 
 ### Changed
+- **Breaking:** without `webhook_signing_secret`, `POST /webhook_events` answers
+  `404` and queues nothing. Before, it accepted unsigned events from anyone and
+  stored them in the job queue. Hosts that receive next-gen webhook events need
+  to set the secret; hosts that use only classic webhooks need do nothing.
 - The README, tutorial and `docs/mandates.md` subscribe from
   `on_mollie_mandate_created` instead of `on_mollie_first_payment_paid`, which
   can run while the mandate is still pending.
