@@ -1,4 +1,5 @@
 require "test_helper"
+require "rake"
 
 module MolliePay
   class RequestSignatureTest < ActiveSupport::TestCase
@@ -81,6 +82,71 @@ module MolliePay
 
       assert_nil unsigned.headers["X-Client-Signature"]
       assert_nil unsigned.headers["X-Client-Signed-At"]
+    end
+
+    test "the key is read as PEM, as PEM with escaped line breaks and as its single line" do
+      pem = @key.private_to_pem
+      single_line = RequestSignature.single_line(pem)
+
+      assert_no_match(/\s|-----/, single_line)
+      [ pem, pem.gsub("\n", "\\n"), single_line, " #{single_line}\n" ].each do |form|
+        MolliePay.configuration.request_signing_key = form
+
+        assert_equal @key.public_to_pem, MolliePay.configuration.request_signing_public_key
+      end
+    end
+
+    test "a generated key pair is an Ed25519 private key with its public key" do
+      private_pem, public_pem = RequestSignature.generate_key_pair
+      MolliePay.configuration.request_signing_key = private_pem
+
+      assert_equal "ED25519", MolliePay.configuration.request_signing_private_key.oid
+      assert_equal public_pem, MolliePay.configuration.request_signing_public_key
+    end
+
+    test "the public key in place of the private one is refused, with the reason" do
+      MolliePay.configuration.request_signing_key = @key.public_to_pem
+
+      error = assert_raises(MolliePay::ConfigurationError) { MolliePay.configuration.request_signing_private_key }
+      assert_match "holds the public key", error.message
+    end
+
+    test "something that is no key is refused" do
+      MolliePay.configuration.request_signing_key = "not a key"
+
+      assert_raises(MolliePay::ConfigurationError) { MolliePay.configuration.request_signing_private_key }
+    end
+
+    test "without a key there is no public key and the status says so, without asking Mollie" do
+      assert_nil MolliePay.configuration.request_signing_public_key
+      assert_equal :not_configured, RequestSignature.status
+    end
+
+    test "the status tells a key Mollie does not enforce from one it accepts and one it refuses" do
+      MolliePay.configuration.request_signing_key = @key.private_to_pem
+      methods = { status: 200, headers: { "Content-Type" => "application/hal+json" }, body: { count: 0, _embedded: { methods: [] } }.to_json }
+      refusal = { status: 401, headers: { "Content-Type" => "application/hal+json" }, body: { status: 401, title: "Unauthorized Request", detail: "Missing authentication, or failed to authenticate" }.to_json }
+
+      stub_request(:get, "#{MOLLIE_API_BASE}/methods").to_return(methods)
+      assert_equal :not_enforced, RequestSignature.status
+
+      stub_request(:get, "#{MOLLIE_API_BASE}/methods").to_return { |request| request.headers["X-Client-Signature"] ? methods : refusal }
+      assert_equal :accepted, RequestSignature.status
+
+      stub_request(:get, "#{MOLLIE_API_BASE}/methods").to_return(refusal)
+      assert_equal :refused, RequestSignature.status
+
+      stub_request(:get, "#{MOLLIE_API_BASE}/methods").to_return(status: 400, body: "{}")
+      assert_raises(MolliePay::Error) { RequestSignature.status }
+    end
+
+    test "the generate task prints a public key and a private key that belong together" do
+      Rails.application.load_tasks unless Rake::Task.task_defined?("mollie_pay:request_signing:generate")
+
+      output, = capture_io { Rake::Task["mollie_pay:request_signing:generate"].execute }
+      MolliePay.configuration.request_signing_key = output.lines.last.strip
+
+      assert_includes output, MolliePay.configuration.request_signing_public_key
     end
 
     test "a signing key that is not Ed25519 is refused" do

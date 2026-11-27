@@ -10,7 +10,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   and every request the engine sends to Mollie carries `X-Client-Signature`
   and `X-Client-Signed-At`, as Mollie requires once a public key is registered
   on the API key or access token. A key that is not Ed25519 raises
-  `MolliePay::ConfigurationError` at boot.
+  `MolliePay::ConfigurationError` at boot. The key is read as PEM or as its
+  single line of base64, which fits an environment variable.
+- Rake tasks for the signing key: `mollie_pay:request_signing:generate` makes a
+  key pair, `public_key` prints the public half of the configured key, and
+  `verify` asks Mollie whether it enforces signing for the API key and accepts
+  the app's signature. `docs/request-signing.md` says where to keep the private
+  key and how to rotate it.
 
 ### Fixed
 - `mollie_revoke_mandate` raises `MolliePay::Error` when the mandate belongs to

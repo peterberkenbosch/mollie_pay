@@ -47,28 +47,27 @@ end
 ### Request signing
 
 Mollie can require every API request to be signed with an Ed25519 key
-([request signing](https://docs.mollie.com/reference/request-signing)). Generate
-a key pair, paste the public key into the API key or access token in the Mollie
-dashboard, and give the engine the private key:
+([request signing](https://docs.mollie.com/reference/request-signing)). Once a
+public key is registered on an API key, Mollie rejects unsigned requests made
+with it with `401`.
 
 ```sh
-openssl genpkey -algorithm Ed25519 -out ed25519_private.pem
-openssl pkey -in ed25519_private.pem -pubout -out ed25519_public.pem
+bin/rails mollie_pay:request_signing:generate   # prints the public key and the private key, once
 ```
 
 ```ruby
-config.request_signing_key = ENV["MOLLIE_REQUEST_SIGNING_KEY"] # contents of ed25519_private.pem
+config.request_signing_key = ENV["MOLLIE_REQUEST_SIGNING_KEY"]
 ```
 
-Every request the engine sends to Mollie is then signed. Once a public key is
-registered, Mollie rejects unsigned requests with `401`. A key that is not an
-Ed25519 private key raises `MolliePay::ConfigurationError` at boot.
+Paste the public key into the API key in the Mollie dashboard, store the
+private key as a secret, and check the result from the deployed app:
 
-`bin/e2e-request-signing` checks this against Mollie's real API with a test
-API key that has the public key registered: it proves that Mollie refuses an
-unsigned request, sends every kind of request the engine makes, signed, and
-ends with wrongly signed requests that must be refused. The test suite never
-runs it. The script's header says how to run it.
+```sh
+bin/rails mollie_pay:request_signing:verify
+```
+
+[docs/request-signing.md](docs/request-signing.md) says where to keep the
+private key, what to do when it leaks or is lost, and how to rotate it.
 
 ## Setup
 
@@ -344,6 +343,7 @@ See [docs/testing.md](docs/testing.md) for the full helper reference.
 - [Tutorial](docs/tutorial.md) — step-by-step guide
 - [API Reference](docs/api.md) — data model, statuses, scopes, errors, configuration
 - [Webhooks](docs/webhooks.md) — webhook flow, chargeback detection, idempotency, Active Job
+- [Request signing](docs/request-signing.md) — generating the key pair, storing the private key, verifying, rotating
 - [Mandates](docs/mandates.md) — SEPA DD mandate consent, compliance, web signature collection
 - [Testing](docs/testing.md) — stub helpers and WebMock helpers
 - [Releasing](docs/RELEASING.md) — release process

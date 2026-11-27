@@ -99,6 +99,9 @@ class RequestSigningE2E
       check("GET a list with a query (payments, limit 1)") { Mollie::Payment.all(limit: 1).to_a.size }
       check("PATCH (update customer)") { organization.mollie_update_customer(name: "E2E renamed") && "updated" }
       check("DELETE (delete customer)") { organization.mollie_delete_customer && "deleted" }
+      check("the status check, as mollie_pay:request_signing:verify asks it") do
+        MolliePay::RequestSignature.status.tap { |status| raise "expected :accepted" unless status == :accepted }
+      end
     end
 
     def wrongly_signed_requests

@@ -208,6 +208,13 @@ PEM) to sign every request to Mollie with `X-Client-Signature` and
 `X-Client-Signed-At`. `MolliePay::RequestSignature` does this. The SDK has no
 hook for it, so the engine prepends into `Mollie::Client#perform_http_call` and
 signs in `Net::HTTP#request`, only for requests sent from inside that call.
+The key is read as PEM, as PEM with `\n` written out, or as the single line of
+base64 between the PEM's first and last line (`RequestSignature.read_key`).
+Three rake tasks help a host with it (`lib/tasks/mollie_pay_tasks.rake`):
+`mollie_pay:request_signing:generate`, `public_key` and `verify`, the last
+through `RequestSignature.status`. `docs/request-signing.md` is the host's
+guide. `bin/e2e-request-signing` checks signing against Mollie's real API and
+is never part of `bin/rails test`.
 
 **Note:** `ProcessWebhookEventJob` receives event data with **camelCase**
 string keys (e.g., `event["entityId"]`, not `event["entity_id"]`), unlike

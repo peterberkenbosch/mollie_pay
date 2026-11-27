@@ -52,6 +52,81 @@ module MolliePay
       string.b.gsub(/[^A-Za-z0-9\-_.!~*'()]/n) { |char| format("%%%02X", char.ord) }
     end
 
+    # A new Ed25519 key pair as PEM: the private key for the app, the public
+    # key for Mollie.
+    def generate_key_pair
+      key = OpenSSL::PKey.generate_key("ED25519")
+
+      [ key.private_to_pem, key.public_to_pem ]
+    end
+
+    # The key as the one line of base64 between a PEM's first and last line.
+    def single_line(pem)
+      pem.lines.reject { |line| line.start_with?("-----") }.join.delete("\n")
+    end
+
+    # Reads a key from PEM, from PEM with "\n" for its line breaks, or from
+    # the single line. Raises OpenSSL::PKey::PKeyError for anything else.
+    def read_key(value)
+      text = value.to_s.gsub("\\n", "\n").strip
+      text = Base64.decode64(text) unless text.include?("-----BEGIN")
+
+      OpenSSL::PKey.read(text)
+    end
+
+    def private?(key)
+      key.private_to_der.present?
+    rescue OpenSSL::PKey::PKeyError
+      false
+    end
+
+    # Asks Mollie how this app's signing stands, with two requests that read
+    # and change nothing:
+    #
+    #   :not_configured  no request_signing_key is set
+    #   :not_enforced    Mollie accepts an unsigned request, so no public key
+    #                    is registered on the API key
+    #   :accepted        Mollie refuses unsigned requests and accepts ours
+    #   :refused         Mollie refuses unsigned requests and ours too: the
+    #                    registered public key is not this key's, the API key
+    #                    is wrong, or the clock is more than 5 minutes off
+    def status
+      if MolliePay.configuration.request_signing_private_key.nil?
+        :not_configured
+      elsif unsigned_request_accepted?
+        :not_enforced
+      elsif signed_request_accepted?
+        :accepted
+      else
+        :refused
+      end
+    end
+
+    # Sent outside Mollie::Client, so nothing signs it.
+    def unsigned_request_accepted?
+      request = Net::HTTP::Get.new("/#{Mollie::Client::API_VERSION}/methods")
+      request["Authorization"] = "Bearer #{MolliePay.configuration.api_key}"
+      request["Accept"] = "application/json"
+      endpoint = URI(Mollie::Client::API_ENDPOINT)
+
+      response = Net::HTTP.start(endpoint.host, endpoint.port, use_ssl: true, open_timeout: 10, read_timeout: 20) { |http| http.request(request) }
+
+      case response.code
+      when "200" then true
+      when "401" then false
+      else raise MolliePay::Error, "Mollie answered #{response.code} to the unsigned request"
+      end
+    end
+
+    def signed_request_accepted?
+      Mollie::Method.all
+      true
+    rescue Mollie::RequestError => error
+      raise unless error.status == 401
+
+      false
+    end
+
     # Prepended into Mollie::Client.
     module Client
       def perform_http_call(...)
