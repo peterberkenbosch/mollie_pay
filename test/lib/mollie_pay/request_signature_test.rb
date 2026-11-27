@@ -111,6 +111,12 @@ module MolliePay
       assert_match "holds the public key", error.message
     end
 
+    test "a passphrase-protected key is refused" do
+      MolliePay.configuration.request_signing_key = @key.private_to_pem(OpenSSL::Cipher.new("aes-256-cbc"), "secret")
+
+      assert_raises(MolliePay::ConfigurationError) { MolliePay.configuration.request_signing_private_key }
+    end
+
     test "something that is no key is refused" do
       MolliePay.configuration.request_signing_key = "not a key"
 

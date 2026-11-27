@@ -66,12 +66,14 @@ module MolliePay
     end
 
     # Reads a key from PEM, from PEM with "\n" for its line breaks, or from
-    # the single line. Raises OpenSSL::PKey::PKeyError for anything else.
+    # the single line. Raises OpenSSL::PKey::PKeyError for anything else,
+    # a passphrase-protected key included: the empty passphrase keeps OpenSSL
+    # from asking for one on the terminal, which would stop the app at boot.
     def read_key(value)
       text = value.to_s.gsub("\\n", "\n").strip
       text = Base64.decode64(text) unless text.include?("-----BEGIN")
 
-      OpenSSL::PKey.read(text)
+      OpenSSL::PKey.read(text, "")
     end
 
     def private?(key)

@@ -3,9 +3,9 @@
 # suite never leaves the machine (WebMock), so this is a script of its own
 # and is never run by bin/rails test.
 #
-# It needs an API key or access token that has an Ed25519 public key
+# It needs a test API key that has an Ed25519 public key
 # registered in the Mollie dashboard (Developers > API keys, the "Public
-# key" field), in test mode, and the matching private key:
+# key" field), and the matching private key:
 #
 #   openssl genpkey -algorithm Ed25519 -out tmp/e2e/ed25519_private.pem
 #   openssl pkey -in tmp/e2e/ed25519_private.pem -pubout -out tmp/e2e/ed25519_public.pem
