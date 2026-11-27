@@ -627,6 +627,20 @@ module MolliePay
       assert_equal @org.mollie_customer.mollie_id, received_options[:customer_id]
     end
 
+    test "mollie_revoke_mandate raises for a mandate of another customer and leaves it valid" do
+      other_org = Organization.create!(name: "Other Org", email: "other@org.nl")
+      other_customer = MolliePay::Customer.create!(mollie_id: "cst_other_mdt", owner: other_org)
+      other_mandate = MolliePay::Mandate.create!(
+        customer: other_customer, mollie_id: "mdt_other", status: "valid", method: "directdebit"
+      )
+
+      Mollie::Customer::Mandate.stub(:delete, ->(*) { flunk "Mollie should not be called" }) do
+        assert_raises(MolliePay::Error) { @org.mollie_revoke_mandate(other_mandate) }
+      end
+
+      assert_equal "valid", other_mandate.reload.status
+    end
+
     # === Named subscriptions ===
 
     test "mollie_subscribe creates named subscription" do

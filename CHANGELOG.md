@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Fixed
+- `mollie_revoke_mandate` raises `MolliePay::Error` when the mandate belongs to
+  another customer, before calling Mollie, as the payment methods already do.
 - `mollie_mark_invoice_paid` raises `MolliePay::Error` when the invoice belongs
   to another customer, before calling Mollie. Before, it marked that invoice
   paid at Mollie and locally.

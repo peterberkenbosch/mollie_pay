@@ -86,6 +86,8 @@ module MolliePay
     end
 
     def mollie_revoke_mandate(mandate)
+      verify_mandate_ownership!(mandate)
+
       Mollie::Customer::Mandate.delete(
         mandate.mollie_id,
         customer_id: mollie_customer.mollie_id
@@ -303,6 +305,10 @@ module MolliePay
     def on_mollie_sales_invoice_paid(sales_invoice)   ; end
 
     private
+
+    def verify_mandate_ownership!(mandate)
+      raise MolliePay::Error, "Mandate does not belong to this customer" unless mollie_mandates.exists?(id: mandate.id)
+    end
 
     def verify_payment_ownership!(payment)
       raise MolliePay::Error, "Payment does not belong to this customer" unless mollie_payments.exists?(id: payment.id)
