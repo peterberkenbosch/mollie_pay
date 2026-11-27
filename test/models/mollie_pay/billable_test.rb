@@ -1314,6 +1314,18 @@ module MolliePay
       assert_equal({ source: "payment" }, received_attrs[:payment_details])
     end
 
+    test "mollie_mark_invoice_paid raises for an invoice of another customer and leaves it issued" do
+      other_org = Organization.create!(name: "Other Org", email: "other@org.nl")
+      other_customer = MolliePay::Customer.create!(mollie_id: "cst_other_inv", owner: other_org)
+      other_invoice = MolliePay::SalesInvoice.create!(customer: other_customer, mollie_id: "invoice_other", status: "issued")
+
+      MolliePay.stub(:update_sales_invoice, ->(*, **) { flunk "Mollie should not be called" }) do
+        assert_raises(MolliePay::Error) { @org.mollie_mark_invoice_paid(other_invoice) }
+      end
+
+      assert other_invoice.reload.issued?
+    end
+
     test "mollie_mark_invoice_paid raises for non-issued invoice" do
       invoice = mollie_pay_sales_invoices(:acme_draft)
       assert invoice.draft?
