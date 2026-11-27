@@ -64,6 +64,12 @@ Every request the engine sends to Mollie is then signed. Once a public key is
 registered, Mollie rejects unsigned requests with `401`. A key that is not an
 Ed25519 private key raises `MolliePay::ConfigurationError` at boot.
 
+`bin/e2e-request-signing` checks this against Mollie's real API with a test
+API key that has the public key registered: it proves that Mollie refuses an
+unsigned request, sends every kind of request the engine makes, signed, and
+ends with wrongly signed requests that must be refused. The test suite never
+runs it. The script's header says how to run it.
+
 ## Setup
 
 Include `MolliePay::Billable` in your paying model:
