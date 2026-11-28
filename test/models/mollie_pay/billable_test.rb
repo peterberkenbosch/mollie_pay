@@ -957,6 +957,61 @@ module MolliePay
       assert_match(/\A[0-9a-f-]{36}\z/, received_args[:idempotency_key])
     end
 
+    test "customer creation sends Mollie the same idempotency key for the same owner, so Mollie creates one customer" do
+      org   = Organization.create!(name: "Race Org", email: "race@org.nl")
+      other = Organization.create!(name: "Race Org", email: "race@org.nl")
+      keys  = []
+      fake_create = ->(**args) { keys << args[:idempotency_key]; fake_mollie_customer }
+
+      Mollie::Customer.stub(:create, fake_create) do
+        Organization.find(org.id).mollie_customer!
+        MolliePay::Customer.where(owner: org).delete_all
+        Organization.find(org.id).mollie_customer!
+        other.mollie_customer!
+      end
+
+      assert_equal keys[0], keys[1]
+      assert_not_equal keys[0], keys[2]
+    end
+
+    test "mollie_customer! returns the customer a concurrent call saved first" do
+      org = Organization.create!(name: "Race Org", email: "race@org.nl")
+      winner = nil
+      fake_create = lambda do |**|
+        winner = MolliePay::Customer.create!(owner: Organization.find(org.id), mollie_id: "cst_race")
+        fake_mollie_customer(id: "cst_race")
+      end
+
+      customer = Mollie::Customer.stub(:create, fake_create) { org.mollie_customer! }
+
+      assert_equal winner, customer
+      assert_equal 1, MolliePay::Customer.where(owner: org).count
+    end
+
+    test "mollie_customer! returns the customer a concurrent call saved first under another Mollie id" do
+      org = Organization.create!(name: "Race Org", email: "race@org.nl")
+      winner = nil
+      fake_create = lambda do |**|
+        winner = MolliePay::Customer.create!(owner: Organization.find(org.id), mollie_id: "cst_race_first")
+        fake_mollie_customer(id: "cst_race_second")
+      end
+
+      customer = Mollie::Customer.stub(:create, fake_create) { org.mollie_customer! }
+
+      assert_equal winner, customer
+      assert_equal 1, MolliePay::Customer.where(owner: org).count
+    end
+
+    test "mollie_customer! still raises when the Mollie id belongs to another owner's customer" do
+      org = Organization.create!(name: "Race Org", email: "race@org.nl")
+      MolliePay::Customer.create!(owner: Organization.create!(name: "Other Org"), mollie_id: "cst_taken")
+
+      Mollie::Customer.stub(:create, fake_mollie_customer(id: "cst_taken")) do
+        assert_raises(ActiveRecord::RecordInvalid) { org.mollie_customer! }
+      end
+      assert_nil org.reload.mollie_customer
+    end
+
     test "on_mollie_* hooks are defined and callable" do
       payment      = mollie_pay_payments(:acme_first)
       subscription = mollie_pay_subscriptions(:acme_monthly)
