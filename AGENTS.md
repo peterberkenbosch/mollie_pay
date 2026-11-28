@@ -200,8 +200,8 @@ automatically. No separate Mollie SDK setup is needed.
 
 **Next-Gen Webhooks:** Set `webhook_signing_secret` to enable HMAC-SHA256
 verification for the `/webhook_events` endpoint. Accepts a string or an
-array of strings (for secret rotation). If not set, events are accepted
-without verification.
+array of strings (for secret rotation). If not set, the endpoint answers
+`404` and accepts no events.
 
 **Request signing:** Set `request_signing_key` (an Ed25519 private key as
 PEM) to sign every request to Mollie with `X-Client-Signature` and

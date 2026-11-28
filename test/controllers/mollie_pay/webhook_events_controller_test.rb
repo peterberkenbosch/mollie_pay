@@ -49,26 +49,28 @@ module MolliePay
       assert_response :bad_request
     end
 
-    test "accepts event without signature when no secret configured" do
+    test "answers not found to an unsigned event when no secret is configured" do
       MolliePay.configuration.webhook_signing_secret = nil
 
       payload = { resource: "event", id: "whe_test1", type: "sales-invoice.paid", entityId: "invoice_1" }.to_json
 
-      assert_enqueued_with(job: ProcessWebhookEventJob) do
+      assert_no_enqueued_jobs do
         post mollie_pay.webhook_events_path,
           params: payload,
           headers: { "CONTENT_TYPE" => "application/json" }
       end
 
-      assert_response :ok
+      assert_response :not_found
     end
 
-    test "accepts event with valid signature when no secret configured" do
+    test "answers not found to a signed event when no secret is configured" do
       MolliePay.configuration.webhook_signing_secret = nil
 
-      post_signed_webhook_event(event_type: "sales-invoice.paid", entity_id: "invoice_1")
+      assert_no_enqueued_jobs do
+        post_signed_webhook_event(event_type: "sales-invoice.paid", entity_id: "invoice_1")
+      end
 
-      assert_response :ok
+      assert_response :not_found
     end
 
     test "rejects empty body" do
@@ -153,13 +155,13 @@ module MolliePay
 
       payload = { resource: "event", id: "whe_empty", type: "sales-invoice.paid", entityId: "invoice_1" }.to_json
 
-      assert_enqueued_with(job: ProcessWebhookEventJob) do
+      assert_no_enqueued_jobs do
         post mollie_pay.webhook_events_path,
           params: payload,
           headers: { "CONTENT_TYPE" => "application/json" }
       end
 
-      assert_response :ok
+      assert_response :not_found
     end
   end
 end
