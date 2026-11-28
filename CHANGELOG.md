@@ -19,6 +19,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   key and how to rotate it.
 
 ### Fixed
+- `SalesInvoice#mollie_amount` returns `nil` for an invoice without an amount
+  or currency, such as a draft. It raised `ArgumentError` for a missing amount
+  and returned a hash with a `nil` currency for a missing currency.
 - `mollie_revoke_mandate` raises `MolliePay::Error` when the mandate belongs to
   another customer, before calling Mollie, as the payment methods already do.
 - `mollie_mark_invoice_paid` raises `MolliePay::Error` when the invoice belongs
