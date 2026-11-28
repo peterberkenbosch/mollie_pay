@@ -19,6 +19,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   key and how to rotate it.
 
 ### Fixed
+- Two calls that create an owner's Mollie customer at the same time no longer
+  create two customers at Mollie. Both send the same idempotency key, derived
+  from the owner and its name and email, so Mollie creates one customer. The
+  call that saves second returns the first one's row instead of raising. While
+  the first call is still running, Mollie answers the second with `409`, which
+  raises `Mollie::RequestError`.
 - `mollie_revoke_mandate` raises `MolliePay::Error` when the mandate belongs to
   another customer, before calling Mollie, as the payment methods already do.
 - `mollie_mark_invoice_paid` raises `MolliePay::Error` when the invoice belongs

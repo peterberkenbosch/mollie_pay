@@ -371,13 +371,18 @@ module MolliePay
       raise unless error.status == 422 && error.detail.to_s.match?(/has been cancell?ed/i)
     end
 
+    # Two calls that race to create this owner's customer send Mollie the same
+    # idempotency key, so Mollie creates one customer and answers both with it
+    # (or answers the second with 409 while the first is still running). The
+    # call that saves second finds the other's row and returns that.
     def create_mollie_customer_on_mollie
-      mc = Mollie::Customer.create(
-        name:            respond_to?(:name)  ? name  : nil,
-        email:           respond_to?(:email) ? email : nil,
-        idempotency_key: SecureRandom.uuid
-      )
+      details = { name: respond_to?(:name) ? name : nil, email: respond_to?(:email) ? email : nil }
+      idempotency_key = Digest::UUID.uuid_v5(Digest::UUID::URL_NAMESPACE, [ to_global_id, *details.values ].join("\n"))
+
+      mc = Mollie::Customer.create(**details, idempotency_key: idempotency_key)
       create_mollie_customer!(mollie_id: mc.id)
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique
+      reload_mollie_customer || raise
     end
 
     def verify_sales_invoice_ownership!(invoice)
