@@ -191,6 +191,7 @@ MolliePay.configure do |config|
   config.default_redirect_path = "/payments/:id"
   config.currency              = "EUR"
   config.webhook_signing_secret = ENV["MOLLIE_WEBHOOK_SIGNING_SECRET"]
+  config.request_signing_key    = ENV["MOLLIE_REQUEST_SIGNING_KEY"]
 end
 ```
 
@@ -201,6 +202,19 @@ automatically. No separate Mollie SDK setup is needed.
 verification for the `/webhook_events` endpoint. Accepts a string or an
 array of strings (for secret rotation). If not set, the endpoint answers
 `404` and accepts no events.
+
+**Request signing:** Set `request_signing_key` (an Ed25519 private key as
+PEM) to sign every request to Mollie with `X-Client-Signature` and
+`X-Client-Signed-At`. `MolliePay::RequestSignature` does this. The SDK has no
+hook for it, so the engine prepends into `Mollie::Client#perform_http_call` and
+signs in `Net::HTTP#request`, only for requests sent from inside that call.
+The key is read as PEM, as PEM with `\n` written out, or as the single line of
+base64 between the PEM's first and last line (`RequestSignature.read_key`).
+Three rake tasks help a host with it (`lib/tasks/mollie_pay_tasks.rake`):
+`mollie_pay:request_signing:generate`, `public_key` and `verify`, the last
+through `RequestSignature.status`. `docs/request-signing.md` is the host's
+guide. `bin/e2e-request-signing` checks signing against Mollie's real API and
+is never part of `bin/rails test`.
 
 **Note:** `ProcessWebhookEventJob` receives event data with **camelCase**
 string keys (e.g., `event["entityId"]`, not `event["entity_id"]`), unlike

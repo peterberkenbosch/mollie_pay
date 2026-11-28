@@ -1,0 +1,181 @@
+#!/usr/bin/env ruby
+# End-to-end check of request signing against Mollie's real API. The test
+# suite never leaves the machine (WebMock), so this is a script of its own
+# and is never run by bin/rails test.
+#
+# It needs a test API key that has an Ed25519 public key
+# registered in the Mollie dashboard (Developers > API keys, the "Public
+# key" field), and the matching private key:
+#
+#   openssl genpkey -algorithm Ed25519 -out tmp/e2e/ed25519_private.pem
+#   openssl pkey -in tmp/e2e/ed25519_private.pem -pubout -out tmp/e2e/ed25519_public.pem
+#
+#   MOLLIE_API_KEY=test_... \
+#   MOLLIE_REQUEST_SIGNING_KEY_FILE=tmp/e2e/ed25519_private.pem \
+#   bin/e2e-request-signing
+#
+# MOLLIE_REQUEST_SIGNING_KEY takes the PEM itself instead of a path. DEBUG=1
+# prints every payload that is signed.
+#
+# The run first proves that Mollie enforces signing for this key: an unsigned
+# request must be refused. Without that, a signed request that succeeds proves
+# nothing. It then sends every kind of request the engine makes, signed, and
+# ends with requests that are signed wrongly and must be refused. It creates
+# one test customer with one open payment of a cent and deletes the customer.
+
+ENV["RAILS_ENV"] = "development"
+ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
+require "bundler/setup"
+require_relative "../test/dummy/config/environment"
+
+class RequestSigningE2E
+  API = URI("https://api.mollie.com")
+  NOT_ENFORCED = 2
+
+  def initialize(api_key:, signing_key_pem:)
+    @api_key = api_key
+    @signing_key_pem = signing_key_pem
+    @failures = 0
+  end
+
+  def run
+    configure
+    prepare_database
+
+    section "Mollie enforces signing for this key"
+    unless refused?("an unsigned request", get("/v2/methods"))
+      puts "\nThis key accepts unsigned requests, so no public key is registered on it"
+      puts "(or Mollie does not enforce it in this mode). Nothing below would prove anything."
+      exit NOT_ENFORCED
+    end
+
+    section "Signed requests, as the engine sends them"
+    signed_requests
+
+    section "Wrongly signed requests are refused"
+    wrongly_signed_requests
+
+    puts
+    puts @failures.zero? ? "All checks passed." : "#{@failures} check(s) failed."
+    exit(@failures.zero? ? 0 : 1)
+  end
+
+  private
+    def configure
+      MolliePay.configuration.api_key = @api_key
+      MolliePay.configuration.request_signing_key = @signing_key_pem
+      # Mollie refuses a webhook address it cannot reach; nothing is listening here.
+      MolliePay.configuration.host = "https://example.com"
+      Mollie::Client.configure { |client| client.api_key = @api_key }
+      @signing_key = MolliePay.configuration.request_signing_private_key
+
+      if ENV["DEBUG"].present?
+        MolliePay::RequestSignature.singleton_class.prepend(Module.new do
+          def payload(...) = super.tap { |payload| puts "    signed payload:\n#{payload.gsub(/^/, "      ")}" }
+        end)
+      end
+    end
+
+    # The engine's records live in memory for the length of the run.
+    def prepare_database
+      ActiveRecord::Base.establish_connection(adapter: "sqlite3", database: ":memory:")
+      ActiveRecord::Schema.verbose = false
+      load File.expand_path("../test/dummy/db/schema.rb", __dir__)
+    end
+
+    def signed_requests
+      organization = Organization.create!(name: "E2E Café Ünïcode € #{Time.current.to_i}")
+      payment = nil
+
+      check("GET without a query (list methods)") { Mollie::Method.all.to_a.size }
+      check("GET with a nested query (methods for an amount)") { MolliePay.payment_methods(amount: BigDecimal("10"), locale: "nl_NL").to_a.size }
+      check("GET with a query value that needs encoding (include=issuers,pricing)") { Mollie::Method.all(include: "issuers,pricing").to_a.size }
+      check("POST with an idempotency key and a UTF-8 body (create customer)") { organization.mollie_customer!.mollie_id[0, 4] }
+      check("POST a first payment") do
+        payment = organization.mollie_pay_first(amount: BigDecimal("0.01"), description: "E2E request signing", redirect_url: "https://example.com/back")
+        payment.status
+      end
+      check("GET one resource (payment)") { payment.mollie_record.status }
+      check("GET a list with a query (payments, limit 1)") { Mollie::Payment.all(limit: 1).to_a.size }
+      check("PATCH (update customer)") { organization.mollie_update_customer(name: "E2E renamed") && "updated" }
+      check("DELETE (delete customer)") { organization.mollie_delete_customer && "deleted" }
+      check("the status check, as mollie_pay:request_signing:verify asks it") do
+        MolliePay::RequestSignature.status.tap { |status| raise "expected :accepted" unless status == :accepted }
+      end
+    end
+
+    def wrongly_signed_requests
+      refused? "a body changed after signing", post("/v2/customers", '{"name":"E2E signed"}') { |request|
+        sign(request)
+        request.body = '{"name":"E2E tampered"}'
+      }
+      refused? "a signature made with another key", get("/v2/methods") { |request| sign(request, key: OpenSSL::PKey.generate_key("ED25519")) }
+      refused? "a timestamp ten minutes old", get("/v2/methods") { |request| sign(request, at: 10.minutes.ago.utc.iso8601(3)) }
+      refused? "a timestamp without milliseconds", get("/v2/methods") { |request| sign(request, at: Time.current.utc.iso8601) }
+    end
+
+    def check(name)
+      result = yield
+      puts "  ok    #{name} (#{result})"
+    rescue Mollie::RequestError => error
+      @failures += 1
+      puts "  FAIL  #{name}: #{error.status} #{error.title}: #{error.detail}"
+    rescue => error
+      @failures += 1
+      puts "  FAIL  #{name}: #{error.class}: #{error.message}"
+    end
+
+    # A request built by hand, outside the SDK, so the engine does not sign it.
+    def refused?(name, response)
+      if response.code == "401"
+        puts "  ok    #{name} is refused (401 #{detail_of(response)})"
+        true
+      else
+        @failures += 1
+        puts "  FAIL  #{name} was answered with #{response.code}, expected 401"
+        false
+      end
+    end
+
+    def get(path, &block) = send_request(Net::HTTP::Get.new(path), &block)
+
+    def post(path, body, &block)
+      request = Net::HTTP::Post.new(path)
+      request.body = body
+      request["Content-Type"] = "application/json"
+      send_request(request, &block)
+    end
+
+    def send_request(request)
+      request["Authorization"] = "Bearer #{@api_key}"
+      request["Accept"] = "application/json"
+      yield request if block_given?
+
+      Net::HTTP.start(API.host, API.port, use_ssl: true, open_timeout: 10, read_timeout: 20) { |http| http.request(request) }
+    end
+
+    def sign(request, key: @signing_key, at: Time.current.utc.iso8601(3))
+      request["X-Client-Signed-At"] = at
+      request["X-Client-Signature"] = Base64.strict_encode64(key.sign(nil, MolliePay::RequestSignature.payload(request, at)))
+    end
+
+    def detail_of(response)
+      JSON.parse(response.body).values_at("title", "detail").compact.join(": ")
+    rescue JSON::ParserError
+      response.body.to_s[0, 80]
+    end
+
+    def section(title)
+      puts
+      puts title
+    end
+end
+
+api_key = ENV["MOLLIE_API_KEY"].to_s
+signing_key_pem = ENV["MOLLIE_REQUEST_SIGNING_KEY"].presence || ENV["MOLLIE_REQUEST_SIGNING_KEY_FILE"].presence&.then { |path| File.read(path) }
+
+abort "Set MOLLIE_API_KEY to a key with a registered public key." if api_key.empty?
+abort "Only a test API key (test_...) is accepted: this creates a customer and a payment." unless api_key.start_with?("test_")
+abort "Set MOLLIE_REQUEST_SIGNING_KEY_FILE (or MOLLIE_REQUEST_SIGNING_KEY) to the Ed25519 private key." if signing_key_pem.nil?
+
+RequestSigningE2E.new(api_key: api_key, signing_key_pem: signing_key_pem).run

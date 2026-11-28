@@ -44,6 +44,31 @@ MolliePay.configure do |config|
 end
 ```
 
+### Request signing
+
+Mollie can require every API request to be signed with an Ed25519 key
+([request signing](https://docs.mollie.com/reference/request-signing)). Once a
+public key is registered on an API key, Mollie rejects unsigned requests made
+with it with `401`.
+
+```sh
+bin/rails mollie_pay:request_signing:generate   # prints the public key and the private key, once
+```
+
+```ruby
+config.request_signing_key = ENV["MOLLIE_REQUEST_SIGNING_KEY"]
+```
+
+Paste the public key into the API key in the Mollie dashboard, store the
+private key as a secret, and check the result from the deployed app:
+
+```sh
+bin/rails mollie_pay:request_signing:verify
+```
+
+[docs/request-signing.md](docs/request-signing.md) says where to keep the
+private key, what to do when it leaks or is lost, and how to rotate it.
+
 ## Setup
 
 Include `MolliePay::Billable` in your paying model:
@@ -318,6 +343,7 @@ See [docs/testing.md](docs/testing.md) for the full helper reference.
 - [Tutorial](docs/tutorial.md) — step-by-step guide
 - [API Reference](docs/api.md) — data model, statuses, scopes, errors, configuration
 - [Webhooks](docs/webhooks.md) — webhook flow, chargeback detection, idempotency, Active Job
+- [Request signing](docs/request-signing.md) — generating the key pair, storing the private key, verifying, rotating
 - [Mandates](docs/mandates.md) — SEPA DD mandate consent, compliance, web signature collection
 - [Testing](docs/testing.md) — stub helpers and WebMock helpers
 - [Releasing](docs/RELEASING.md) — release process
