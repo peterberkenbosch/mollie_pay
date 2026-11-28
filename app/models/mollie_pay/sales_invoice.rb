@@ -73,7 +73,10 @@ module MolliePay
       status == STATUS_CANCELED
     end
 
+    # Nil for an invoice that has no amount yet, such as a draft.
     def mollie_amount
+      return if amount.nil? || currency.nil?
+
       MolliePay.mollie_amount(amount, currency: currency)
     end
 

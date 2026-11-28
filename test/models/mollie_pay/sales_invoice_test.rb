@@ -257,6 +257,21 @@ module MolliePay
       assert_equal expected, invoice.mollie_amount
     end
 
+    test "mollie_amount is nil for an invoice without an amount" do
+      invoice = mollie_pay_sales_invoices(:acme_draft)
+      invoice.amount = nil
+      invoice.currency = nil
+
+      assert_nil invoice.mollie_amount
+    end
+
+    test "mollie_amount is nil for an invoice with an amount but no currency" do
+      invoice = mollie_pay_sales_invoices(:acme_issued)
+      invoice.currency = nil
+
+      assert_nil invoice.mollie_amount
+    end
+
     private
 
     def fake_mollie_si(id:, status:, invoice_number: nil, recipient_identifier: nil,
