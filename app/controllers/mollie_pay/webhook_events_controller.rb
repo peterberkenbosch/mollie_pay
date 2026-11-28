@@ -2,6 +2,10 @@ module MolliePay
   class WebhookEventsController < ApplicationController
     skip_forgery_protection
 
+    # Without a signing secret an event cannot be verified, so the endpoint
+    # acts as if it is not there.
+    before_action :require_signing_secret
+
     def create
       raw_body = request.raw_post
       head :bad_request and return if raw_body.blank?
@@ -25,14 +29,15 @@ module MolliePay
 
     private
 
-      def verify_signature!(raw_body)
-        secrets = MolliePay.configuration.webhook_signing_secrets
-        return if secrets.nil?
+      def require_signing_secret
+        head :not_found if MolliePay.configuration.webhook_signing_secrets.nil?
+      end
 
+      def verify_signature!(raw_body)
         MolliePay::WebhookSignature.verify!(
           raw_body,
           request.headers["X-Mollie-Signature"],
-          secrets
+          MolliePay.configuration.webhook_signing_secrets
         )
       end
   end

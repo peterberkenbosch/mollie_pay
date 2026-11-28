@@ -140,8 +140,9 @@ end
 The signing secret is displayed once when you create the webhook subscription
 in the Mollie Dashboard. Store it immediately — it cannot be retrieved later.
 
-If `webhook_signing_secret` is not configured, events are accepted without
-signature verification. **This is not recommended for production.**
+Without `webhook_signing_secret` the endpoint answers `404 Not Found` and
+accepts no events, signed or not. An event the engine cannot verify is never
+queued.
 
 For secret rotation, pass an array:
 
@@ -156,7 +157,8 @@ config.webhook_signing_secret = [
 
 ```
 POST /mollie_pay/webhook_events     (from Mollie, with X-Mollie-Signature header)
-  → verify HMAC-SHA256 signature    (if signing secret configured)
+  → 404 if no signing secret is configured
+  → verify HMAC-SHA256 signature
   → parse JSON event payload
   → validate required fields (id, type)
   → ProcessWebhookEventJob.perform_later(event)

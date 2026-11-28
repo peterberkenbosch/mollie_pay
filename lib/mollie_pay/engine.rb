@@ -15,7 +15,7 @@ module MolliePay
         if MolliePay.configuration.webhook_signing_secrets.nil?
           Rails.logger.warn(
             "[MolliePay] webhook_signing_secret is not configured. " \
-            "Next-gen webhook events at /webhook_events will be accepted without signature verification."
+            "Next-gen webhook events at /webhook_events are refused with 404 until it is set."
           )
         end
       end
